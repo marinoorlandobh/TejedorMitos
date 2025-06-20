@@ -63,19 +63,20 @@ export interface ReimaginedOutputData {
 // For form validation and AI flow inputs/outputs, we can reuse/import from Zod schemas if defined elsewhere
 // or create specific types here if needed. The AI flows already export their Zod-derived types.
 
-export const MYTHOLOGICAL_CULTURES = ["Greek", "Norse", "Egyptian", "Japanese", "Hindu", "Celtic", "Mesopotamian", "Custom"];
-export const IMAGE_STYLES = ["Photorealistic", "Anime", "Oil Painting", "Watercolor", "Abstract", "Pixel Art", "Comic Book", "Steampunk", "Cyberpunk", "Fantasy Art"];
-export const ASPECT_RATIOS = ["1:1 (Square)", "16:9 (Widescreen)", "9:16 (Portrait)", "4:3 (Standard)", "3:4 (Portrait Standard)"];
-export const IMAGE_QUALITIES = ["Standard", "High", "Ultra"];
+export const MYTHOLOGICAL_CULTURES = ["Griega", "Nórdica", "Egipcia", "Japonesa", "Hindú", "Celta", "Mesopotámica", "Personalizada"];
+export const IMAGE_STYLES = ["Fotorrealista", "Anime", "Pintura al Óleo", "Acuarela", "Abstracto", "Pixel Art", "Cómic", "Steampunk", "Cyberpunk", "Arte Fantástico"];
+export const ASPECT_RATIOS = ["1:1 (Cuadrado)", "16:9 (Panorámico)", "9:16 (Vertical)", "4:3 (Estándar)", "3:4 (Vertical Estándar)"];
+export const IMAGE_QUALITIES = ["Estándar", "Alta", "Ultra"];
 
 // Helper to map aspect ratio string to numerical values if needed for generation
 export const mapAspectRatio = (aspectRatioString: string): { width: number, height: number } | undefined => {
   switch (aspectRatioString) {
-    case "1:1 (Square)": return { width: 1, height: 1 };
-    case "16:9 (Widescreen)": return { width: 16, height: 9 };
-    case "9:16 (Portrait)": return { width: 9, height: 16 };
-    case "4:3 (Standard)": return { width: 4, height: 3 };
-    case "3:4 (Portrait Standard)": return { width: 3, height: 4 };
+    case "1:1 (Cuadrado)": return { width: 1, height: 1 };
+    case "16:9 (Panorámico)": return { width: 16, height: 9 };
+    case "9:16 (Vertical)": return { width: 9, height: 16 };
+    case "4:3 (Estándar)": return { width: 4, height: 3 };
+    case "3:4 (Vertical Estándar)": return { width: 3, height: 4 };
     default: return undefined;
   }
 };
+

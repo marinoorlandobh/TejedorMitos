@@ -21,14 +21,14 @@ import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } f
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const reimagineImageSchema = z.object({
-  name: z.string().min(1, "Creation name is required.").max(100),
-  originalImageFile: z.custom<FileList>(val => val instanceof FileList && val.length > 0, "An original image file is required."),
-  contextCulture: z.string().min(1, "Original image context culture is required."),
-  contextEntity: z.string().min(1, "Original image context entity/theme is required.").max(150),
-  contextDetails: z.string().min(1, "Original image context details are required.").max(1000),
-  visualStyle: z.string().min(1, "New visual style is required."),
-  aspectRatio: z.string().min(1, "New aspect ratio is required."),
-  imageQuality: z.string().min(1, "New image quality is required."),
+  name: z.string().min(1, "El nombre de la creación es obligatorio.").max(100),
+  originalImageFile: z.custom<FileList>(val => val instanceof FileList && val.length > 0, "Se requiere un archivo de imagen original."),
+  contextCulture: z.string().min(1, "La cultura del contexto de la imagen original es obligatoria."),
+  contextEntity: z.string().min(1, "La entidad/tema del contexto de la imagen original es obligatoria.").max(150),
+  contextDetails: z.string().min(1, "Los detalles del contexto de la imagen original son obligatorios.").max(1000),
+  visualStyle: z.string().min(1, "El nuevo estilo visual es obligatorio."),
+  aspectRatio: z.string().min(1, "La nueva relación de aspecto es obligatoria."),
+  imageQuality: z.string().min(1, "La nueva calidad de imagen es obligatoria."),
 });
 
 type ReimagineImageFormData = z.infer<typeof reimagineImageSchema>;
@@ -87,7 +87,7 @@ export default function ReimagineImagePage() {
     setDerivedPrompt(null);
 
     if (!data.originalImageFile || data.originalImageFile.length === 0) {
-      toast({ variant: "destructive", title: "Error", description: "Please upload an original image." });
+      toast({ variant: "destructive", title: "Error", description: "Por favor, sube una imagen original." });
       setIsLoading(false);
       return;
     }
@@ -97,7 +97,7 @@ export default function ReimagineImagePage() {
     try {
       originalImageDataUri = await fileToDataUri(imageFile);
     } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to read image file." });
+      toast({ variant: "destructive", title: "Error", description: "Error al leer el archivo de imagen." });
       setIsLoading(false);
       return;
     }
@@ -127,10 +127,10 @@ export default function ReimagineImagePage() {
         result.reimaginedImage,
         originalImageDataUri
       );
-      toast({ title: "Image Reimagined!", description: "Your new creation has been saved to your gallery." });
+      toast({ title: "¡Imagen Reimaginada!", description: "Tu nueva creación se ha guardado en tu galería." });
     } catch (error: any) {
       console.error("Error reimagining image:", error);
-      toast({ variant: "destructive", title: "Error", description: error.message || "Failed to reimagine image." });
+      toast({ variant: "destructive", title: "Error", description: error.message || "Error al reimaginar la imagen." });
     } finally {
       setIsLoading(false);
     }
@@ -138,7 +138,7 @@ export default function ReimagineImagePage() {
   
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: "Prompt copied to clipboard." });
+    toast({ title: "¡Copiado!", description: "Prompt copiado al portapapeles." });
   };
 
 
@@ -148,17 +148,17 @@ export default function ReimagineImagePage() {
         <header className="mb-8">
           <h1 className="text-4xl font-headline font-bold text-primary flex items-center">
             <Palette className="mr-3 h-10 w-10" />
-            Reimagine Your Image
+            Reimagina Tu Imagen
           </h1>
           <p className="text-muted-foreground mt-2 text-lg">
-            Upload an image and transform it with a new mythological context and visual style.
+            Sube una imagen y transfórmala con un nuevo contexto mitológico y estilo visual.
           </p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <Card className="lg:col-span-2 shadow-lg">
             <CardHeader>
-              <CardTitle>Define Transformation</CardTitle>
+              <CardTitle>Definir Transformación</CardTitle>
             </CardHeader>
             <CardContent>
               <Form {...form}>
@@ -168,9 +168,9 @@ export default function ReimagineImagePage() {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>New Creation Name</FormLabel>
+                        <FormLabel>Nombre de Nueva Creación</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., Cyberpunk Medusa, Steampunk Griffin" {...field} />
+                          <Input placeholder="Ej: Medusa Cyberpunk, Grifo Steampunk" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -181,7 +181,7 @@ export default function ReimagineImagePage() {
                     name="originalImageFile"
                      render={({ field: { onChange, ...fieldProps } }) => (
                       <FormItem>
-                        <FormLabel>Upload Original Image</FormLabel>
+                        <FormLabel>Subir Imagen Original</FormLabel>
                         <FormControl>
                           <div className="flex items-center justify-center w-full">
                             <label htmlFor="dropzone-file-reimagine" className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer ${originalImagePreview ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
@@ -189,14 +189,14 @@ export default function ReimagineImagePage() {
                                     {originalImagePreview ? (
                                         <>
                                         <CheckCircle className="w-8 h-8 mb-2 text-primary" />
-                                        <p className="mb-1 text-sm text-primary"><span className="font-semibold">Image Selected!</span></p>
+                                        <p className="mb-1 text-sm text-primary"><span className="font-semibold">¡Imagen Seleccionada!</span></p>
                                         <p className="text-xs text-muted-foreground">{form.getValues("originalImageFile")?.[0]?.name}</p>
                                         </>
                                     ) : (
                                         <>
                                         <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
-                                        <p className="mb-1 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span></p>
-                                        <p className="text-xs text-muted-foreground">Original image to transform</p>
+                                        <p className="mb-1 text-sm text-muted-foreground"><span className="font-semibold">Haz clic para subir</span></p>
+                                        <p className="text-xs text-muted-foreground">Imagen original para transformar</p>
                                         </>
                                     )}
                                 </div>
@@ -211,17 +211,17 @@ export default function ReimagineImagePage() {
                       </FormItem>
                     )}
                   />
-                  <CardDescription>Original Image Context:</CardDescription>
+                  <CardDescription>Contexto de Imagen Original:</CardDescription>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="contextCulture"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Culture</FormLabel>
+                          <FormLabel>Cultura</FormLabel>
                            <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger><SelectValue placeholder="Select culture" /></SelectTrigger>
+                              <SelectTrigger><SelectValue placeholder="Selecciona cultura" /></SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {MYTHOLOGICAL_CULTURES.map(c => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
@@ -236,8 +236,8 @@ export default function ReimagineImagePage() {
                       name="contextEntity"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Entity/Theme</FormLabel>
-                          <FormControl><Input placeholder="e.g., Athena, Sphinx" {...field} /></FormControl>
+                          <FormLabel>Entidad/Tema</FormLabel>
+                          <FormControl><Input placeholder="Ej: Atenea, Esfinge" {...field} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -248,23 +248,23 @@ export default function ReimagineImagePage() {
                       name="contextDetails"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Descriptive Details</FormLabel>
-                          <FormControl><Textarea placeholder="Details about the original image context" {...field} rows={2}/></FormControl>
+                          <FormLabel>Detalles Descriptivos</FormLabel>
+                          <FormControl><Textarea placeholder="Detalles sobre el contexto de la imagen original" {...field} rows={2}/></FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   
-                  <CardDescription>New Visual Parameters:</CardDescription>
+                  <CardDescription>Nuevos Parámetros Visuales:</CardDescription>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="visualStyle"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>New Visual Style</FormLabel>
+                          <FormLabel>Nuevo Estilo Visual</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select new style" /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Selecciona nuevo estilo" /></SelectTrigger></FormControl>
                             <SelectContent>{IMAGE_STYLES.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
                           </Select>
                           <FormMessage />
@@ -276,9 +276,9 @@ export default function ReimagineImagePage() {
                       name="aspectRatio"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>New Aspect Ratio</FormLabel>
+                          <FormLabel>Nueva Relación de Aspecto</FormLabel>
                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select new aspect ratio" /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Selecciona nueva relación de aspecto" /></SelectTrigger></FormControl>
                             <SelectContent>{ASPECT_RATIOS.map(r => (<SelectItem key={r} value={r}>{r}</SelectItem>))}</SelectContent>
                           </Select>
                           <FormMessage />
@@ -291,9 +291,9 @@ export default function ReimagineImagePage() {
                       name="imageQuality"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>New Image Quality</FormLabel>
+                          <FormLabel>Nueva Calidad de Imagen</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select new quality" /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Selecciona nueva calidad" /></SelectTrigger></FormControl>
                             <SelectContent>{IMAGE_QUALITIES.map(q => (<SelectItem key={q} value={q}>{q}</SelectItem>))}</SelectContent>
                           </Select>
                           <FormMessage />
@@ -302,7 +302,7 @@ export default function ReimagineImagePage() {
                     />
                   <Button type="submit" disabled={isLoading || !originalImagePreview} className="w-full">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Palette className="mr-2 h-4 w-4" />}
-                    Reimagine Image
+                    Reimaginar Imagen
                   </Button>
                 </form>
               </Form>
@@ -311,43 +311,43 @@ export default function ReimagineImagePage() {
 
           <div className="space-y-8">
             <Card className="shadow-lg">
-              <CardHeader><CardTitle>Original Image</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Imagen Original</CardTitle></CardHeader>
               <CardContent className="flex items-center justify-center min-h-[200px]">
                 {originalImagePreview ? (
-                  <Image src={originalImagePreview} alt="Original image preview" width={300} height={300} className="rounded-lg object-contain max-h-[250px]" data-ai-hint="uploaded image" />
+                  <Image src={originalImagePreview} alt="Vista previa de imagen original" width={300} height={300} className="rounded-lg object-contain max-h-[250px]" data-ai-hint="uploaded image" />
                 ) : (
                   <div className="text-center text-muted-foreground p-4 border-2 border-dashed rounded-lg">
                     <UploadCloud className="h-10 w-10 mx-auto mb-2" />
-                    <p>Upload an image to see preview.</p>
+                    <p>Sube una imagen para ver la vista previa.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
             <Card className="shadow-lg">
-              <CardHeader><CardTitle>Reimagined Image</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Imagen Reimaginada</CardTitle></CardHeader>
               <CardContent className="flex flex-col items-center justify-center min-h-[200px]">
                 {isLoading && (
                   <div className="text-center text-muted-foreground">
                     <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
-                    <p>Reimagining...</p>
+                    <p>Reimaginando...</p>
                   </div>
                 )}
                 {!isLoading && reimaginedImage && (
-                  <Image src={reimaginedImage} alt="Reimagined image" width={300} height={300} className="rounded-lg object-contain max-h-[250px] shadow-md" data-ai-hint="transformed art" />
+                  <Image src={reimaginedImage} alt="Imagen reimaginada" width={300} height={300} className="rounded-lg object-contain max-h-[250px] shadow-md" data-ai-hint="transformed art" />
                 )}
                 {!isLoading && !reimaginedImage && (
                   <div className="text-center text-muted-foreground p-4 border-2 border-dashed rounded-lg">
                      <Palette className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                    <p>New image will appear here.</p>
+                    <p>La nueva imagen aparecerá aquí.</p>
                   </div>
                 )}
               </CardContent>
                {derivedPrompt && !isLoading && (
                 <CardFooter className="flex-col items-start gap-2 border-t pt-4">
-                  <h3 className="font-semibold">Derived Prompt:</h3>
+                  <h3 className="font-semibold">Prompt Derivado:</h3>
                   <p className="text-sm text-muted-foreground bg-muted p-2 rounded-md break-words">{derivedPrompt}</p>
                   <Button variant="outline" size="sm" onClick={() => copyToClipboard(derivedPrompt)}>
-                    <Copy className="mr-2 h-4 w-4" /> Copy Prompt
+                    <Copy className="mr-2 h-4 w-4" /> Copiar Prompt
                   </Button>
                 </CardFooter>
               )}

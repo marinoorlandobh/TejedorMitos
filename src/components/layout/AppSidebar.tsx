@@ -18,11 +18,11 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Separator } from "@/components/ui/separator";
 
 const navItems = [
-  { href: "/create", label: "Create Myth", icon: Wand2 },
-  { href: "/analyze", label: "Analyze Image", icon: ImageIcon, subIcon: Sparkles },
-  { href: "/reimagine", label: "Reimagine Image", icon: Palette },
-  { href: "/gallery", label: "My Gallery", icon: GalleryVerticalEnd },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/create", label: "Crear Mito", icon: Wand2 },
+  { href: "/analyze", label: "Analizar Imagen", icon: ImageIcon, subIcon: Sparkles },
+  { href: "/reimagine", label: "Reimaginar Imagen", icon: Palette },
+  { href: "/gallery", label: "Mi Galería", icon: GalleryVerticalEnd },
+  { href: "/settings", label: "Ajustes", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -33,7 +33,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 justify-between items-center">
         <Link href="/create" className="flex items-center gap-2">
           <ScrollText className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-headline font-semibold group-data-[collapsible=icon]:hidden">Myth Weaver</h1>
+          <h1 className="text-2xl font-headline font-semibold group-data-[collapsible=icon]:hidden">Tejedor de Mitos</h1>
         </Link>
         <div className="block md:hidden">
            <SidebarTrigger />
@@ -66,7 +66,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-4 flex items-center justify-between group-data-[collapsible=icon]:justify-center">
          <div className="group-data-[collapsible=icon]:hidden">
           <Button variant="outline" size="sm" onClick={() => window.open('https://github.com/your-repo/myth-weaver', '_blank')}>
-            View Source
+            Ver Código Fuente
           </Button>
          </div>
         <ThemeToggle />
@@ -74,3 +74,4 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+

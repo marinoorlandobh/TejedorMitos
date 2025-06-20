@@ -4,8 +4,8 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'Myth Weaver',
-  description: 'Explore, create, and reimaginar mythological concepts with AI.',
+  title: 'Tejedor de Mitos',
+  description: 'Explora, crea y reimagina conceptos mitológicos con IA.',
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -34,3 +34,4 @@ export default function RootLayout({
     </html>
   );
 }
+

@@ -30,10 +30,10 @@ export default function SettingsPage() {
 
   const handleExport = async () => {
     await exportData();
-    if (!error && !loading) { // Check error from context if it gets updated synchronously
-       toast({ title: "Export Successful", description: "Your gallery data has been downloaded." });
+    if (!error && !loading) { 
+       toast({ title: "Exportación Exitosa", description: "Los datos de tu galería han sido descargados." });
     } else if(error) {
-       toast({ variant: "destructive", title: "Export Failed", description: error });
+       toast({ variant: "destructive", title: "Exportación Fallida", description: error });
     }
   };
 
@@ -46,11 +46,11 @@ export default function SettingsPage() {
     if (file) {
       await importData(file, importMode);
       if (!error && !loading) {
-        toast({ title: "Import Successful", description: `Gallery data has been ${importMode === 'merge' ? 'merged' : 'replaced'}.` });
+        toast({ title: "Importación Exitosa", description: `Los datos de la galería han sido ${importMode === 'merge' ? 'fusionados' : 'reemplazados'}.` });
       } else if(error) {
-        toast({ variant: "destructive", title: "Import Failed", description: error });
+        toast({ variant: "destructive", title: "Importación Fallida", description: error });
       }
-      // Reset file input
+      
       if(fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -58,9 +58,9 @@ export default function SettingsPage() {
   const handleClearAll = async () => {
     await clearAllData();
      if (!error && !loading) {
-        toast({ title: "Data Cleared", description: "All your gallery data has been removed." });
+        toast({ title: "Datos Borrados", description: "Todos los datos de tu galería han sido eliminados." });
     } else if(error) {
-       toast({ variant: "destructive", title: "Clear Failed", description: error });
+       toast({ variant: "destructive", title: "Error al Borrar", description: error });
     }
   };
 
@@ -70,48 +70,48 @@ export default function SettingsPage() {
       <header className="mb-8">
         <h1 className="text-4xl font-headline font-bold text-primary flex items-center">
           <SettingsIcon className="mr-3 h-10 w-10" />
-          Settings
+          Ajustes
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Manage your Myth Weaver application data and preferences.
+          Gestiona los datos y preferencias de tu aplicación Tejedor de Mitos.
         </p>
       </header>
 
       {error && (
         <div className="mb-4 p-4 bg-destructive/10 text-destructive border border-destructive rounded-md flex items-center">
           <AlertTriangle className="h-5 w-5 mr-2"/> 
-          <p>{error}</p>
+          <p>{error === "Failed to import data. Check file format and integrity." ? "Error al importar datos. Verifica el formato e integridad del archivo." : error === "Failed to read file." ? "Error al leer el archivo." : error}</p>
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center"><Download className="mr-2 h-5 w-5 text-primary" /> Export Data</CardTitle>
-            <CardDescription>Download your entire gallery (creations, images, and AI outputs) as a JSON file for backup or migration.</CardDescription>
+            <CardTitle className="flex items-center"><Download className="mr-2 h-5 w-5 text-primary" /> Exportar Datos</CardTitle>
+            <CardDescription>Descarga tu galería completa (creaciones, imágenes y salidas de IA) como un archivo JSON para copia de seguridad o migración.</CardDescription>
           </CardHeader>
           <CardFooter>
             <Button onClick={handleExport} disabled={loading} className="w-full">
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              Export My Gallery
+              Exportar Mi Galería
             </Button>
           </CardFooter>
         </Card>
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center"><Upload className="mr-2 h-5 w-5 text-primary" /> Import Data</CardTitle>
-            <CardDescription>Import a previously exported gallery from a JSON file. You can choose to merge with existing data or replace it entirely.</CardDescription>
+            <CardTitle className="flex items-center"><Upload className="mr-2 h-5 w-5 text-primary" /> Importar Datos</CardTitle>
+            <CardDescription>Importa una galería previamente exportada desde un archivo JSON. Puedes elegir fusionar con los datos existentes o reemplazarlos por completo.</CardDescription>
           </CardHeader>
           <CardContent>
             <RadioGroup defaultValue="merge" value={importMode} onValueChange={(value: 'merge' | 'replace') => setImportMode(value)} className="mb-4">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="merge" id="merge" />
-                <Label htmlFor="merge">Merge with existing data</Label>
+                <Label htmlFor="merge">Fusionar con datos existentes</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="replace" id="replace" />
-                <Label htmlFor="replace">Replace existing data</Label>
+                <Label htmlFor="replace">Reemplazar datos existentes</Label>
               </div>
             </RadioGroup>
             <Input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
@@ -119,35 +119,35 @@ export default function SettingsPage() {
           <CardFooter>
             <Button onClick={handleImportClick} disabled={loading} className="w-full">
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              Import Gallery File
+              Importar Archivo de Galería
             </Button>
           </CardFooter>
         </Card>
 
         <Card className="shadow-lg border-destructive/50">
           <CardHeader>
-            <CardTitle className="flex items-center text-destructive"><Trash2 className="mr-2 h-5 w-5" /> Clear All Data</CardTitle>
-            <CardDescription>Permanently delete your entire gallery from this browser. This action cannot be undone. Export your data first if you want a backup.</CardDescription>
+            <CardTitle className="flex items-center text-destructive"><Trash2 className="mr-2 h-5 w-5" /> Borrar Todos los Datos</CardTitle>
+            <CardDescription>Elimina permanentemente toda tu galería de este navegador. Esta acción no se puede deshacer. Exporta tus datos primero si quieres una copia de seguridad.</CardDescription>
           </CardHeader>
           <CardFooter>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" disabled={loading} className="w-full">
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                  Clear All My Data
+                  Borrar Todos Mis Datos
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete all your creations, images, and AI outputs stored in this browser. This action is irreversible.
+                    Esto eliminará permanentemente todas tus creaciones, imágenes y salidas de IA almacenadas en este navegador. Esta acción es irreversible.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction onClick={handleClearAll} className="bg-destructive hover:bg-destructive/90">
-                    Yes, delete everything
+                    Sí, borrar todo
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

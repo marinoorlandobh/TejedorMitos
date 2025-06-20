@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import { useHistory } from '@/contexts/HistoryContext';
 import type { Creation, ImageDataModel, TextOutputModel, GeneratedParams, AnalyzedParams, ReimaginedParams } from '@/lib/types';
@@ -83,7 +84,7 @@ export default function GalleryPage() {
 
   const handleDelete = async (id: string) => {
     await deleteCreation(id);
-    toast({ title: "Creation Deleted", description: "The item has been removed from your gallery." });
+    toast({ title: "Creación Eliminada", description: "El elemento ha sido eliminado de tu galería." });
   };
 
   const handleEditName = (creation: CreationFull) => {
@@ -96,13 +97,13 @@ export default function GalleryPage() {
       await updateCreationName(selectedCreation.id, newName.trim());
       setSelectedCreation(prev => prev ? { ...prev, name: newName.trim(), updatedAt: Date.now() } : null);
       setIsEditingName(false);
-      toast({ title: "Name Updated", description: "The creation's name has been changed." });
+      toast({ title: "Nombre Actualizado", description: "El nombre de la creación ha sido cambiado." });
     }
   };
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: `${type} copied to clipboard.` });
+    toast({ title: "¡Copiado!", description: `${type} copiado al portapapeles.` });
   };
 
   const renderParams = (params: Creation['params'], type: Creation['type']) => {
@@ -110,20 +111,20 @@ export default function GalleryPage() {
     return (
       <div className="space-y-1 text-xs text-muted-foreground">
         {type === 'generated' && <>
-          <p><strong>Culture:</strong> {p.culture}</p>
-          <p><strong>Entity:</strong> {p.entity}</p>
-          <p><strong>Style:</strong> {p.style}</p>
+          <p><strong>Cultura:</strong> {p.culture}</p>
+          <p><strong>Entidad:</strong> {p.entity}</p>
+          <p><strong>Estilo:</strong> {p.style}</p>
         </>}
         {type === 'analyzed' && <>
-          <p><strong>Context:</strong> {p.mythologicalContext}</p>
-          <p><strong>Entity/Theme:</strong> {p.entityTheme}</p>
+          <p><strong>Contexto:</strong> {p.mythologicalContext}</p>
+          <p><strong>Entidad/Tema:</strong> {p.entityTheme}</p>
         </>}
         {type === 'reimagined' && <>
-          <p><strong>Original Context:</strong> {p.contextCulture} - {p.contextEntity}</p>
-          <p><strong>New Style:</strong> {p.visualStyle}</p>
+          <p><strong>Contexto Original:</strong> {p.contextCulture} - {p.contextEntity}</p>
+          <p><strong>Nuevo Estilo:</strong> {p.visualStyle}</p>
         </>}
-         <p><strong>Quality:</strong> {p.imageQuality || 'N/A'}</p>
-         <p><strong>Aspect Ratio:</strong> {p.aspectRatio || 'N/A'}</p>
+         <p><strong>Calidad:</strong> {p.imageQuality || 'N/D'}</p>
+         <p><strong>Relación de Aspecto:</strong> {p.aspectRatio || 'N/D'}</p>
       </div>
     );
   };
@@ -132,7 +133,7 @@ export default function GalleryPage() {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <span className="ml-4 text-xl text-muted-foreground">Loading Gallery...</span>
+        <span className="ml-4 text-xl text-muted-foreground">Cargando Galería...</span>
       </div>
     );
   }
@@ -143,10 +144,10 @@ export default function GalleryPage() {
         <header className="mb-8">
           <h1 className="text-4xl font-headline font-bold text-primary flex items-center">
             <GalleryVerticalEnd className="mr-3 h-10 w-10" />
-            My Gallery
+            Mi Galería
           </h1>
           <p className="text-muted-foreground mt-2 text-lg">
-            Explore your collection of mythic creations, analyses, and reimaginations.
+            Explora tu colección de creaciones míticas, análisis y reimaginaciones.
           </p>
         </header>
 
@@ -155,7 +156,7 @@ export default function GalleryPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search by name, culture, entity..."
+              placeholder="Buscar por nombre, cultura, entidad..."
               className="pl-10 w-full"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -163,13 +164,13 @@ export default function GalleryPage() {
           </div>
           <Select value={sortBy} onValueChange={(value) => setSortBy(value as any)}>
             <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Sort by" />
+              <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="createdAtDesc">Date (Newest)</SelectItem>
-              <SelectItem value="createdAtAsc">Date (Oldest)</SelectItem>
-              <SelectItem value="nameAsc">Name (A-Z)</SelectItem>
-              <SelectItem value="nameDesc">Name (Z-A)</SelectItem>
+              <SelectItem value="createdAtDesc">Fecha (Más recientes)</SelectItem>
+              <SelectItem value="createdAtAsc">Fecha (Más antiguos)</SelectItem>
+              <SelectItem value="nameAsc">Nombre (A-Z)</SelectItem>
+              <SelectItem value="nameDesc">Nombre (Z-A)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -178,16 +179,16 @@ export default function GalleryPage() {
           <Card className="text-center py-12 shadow-none border-dashed">
             <CardHeader>
               <Info className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <CardTitle className="text-2xl">Your Gallery is Empty</CardTitle>
+              <CardTitle className="text-2xl">Tu Galería está Vacía</CardTitle>
             </CardHeader>
             <CardContent>
               <CardDescription className="text-lg">
-                Start by creating a new myth, analyzing an image, or reimagining one!
+                ¡Comienza creando un nuevo mito, analizando una imagen o reimaginando una!
               </CardDescription>
             </CardContent>
             <CardFooter className="justify-center">
               <Button asChild>
-                <a href="/create">Create Your First Myth</a>
+                <a href="/create">Crea Tu Primer Mito</a>
               </Button>
             </CardFooter>
           </Card>
@@ -202,23 +203,23 @@ export default function GalleryPage() {
                       creation.type === 'generated' ? 'default' :
                       creation.type === 'analyzed' ? 'secondary' : 'outline'
                     } className="capitalize shrink-0 ml-2">
-                      {creation.type}
+                      {creation.type === 'generated' ? 'generado' : creation.type === 'analyzed' ? 'analizado' : 'reimaginado'}
                     </Badge>
                   </div>
                   <CardDescription className="text-xs">
-                    {formatDistanceToNow(new Date(creation.createdAt), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(creation.createdAt), { addSuffix: true, locale: es })}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow flex items-center justify-center p-0 aspect-square bg-muted/30">
                   {creation.imageId ? (
                     <ImageItem imageId={creation.imageId} alt={creation.name} />
                   ) : (
-                    <div className="p-4 text-center text-sm text-muted-foreground">No image preview.</div>
+                    <div className="p-4 text-center text-sm text-muted-foreground">Sin vista previa de imagen.</div>
                   )}
                 </CardContent>
                 <CardFooter className="pt-4 flex justify-between items-center">
                   <Button variant="outline" size="sm" onClick={() => handleViewDetails(creation)}>
-                    <ExternalLink className="mr-2 h-4 w-4" /> View
+                    <ExternalLink className="mr-2 h-4 w-4" /> Ver
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -228,15 +229,15 @@ export default function GalleryPage() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete "{creation.name}".
+                          Esta acción no se puede deshacer. Esto eliminará permanentemente "{creation.name}".
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction onClick={() => handleDelete(creation.id)} className="bg-destructive hover:bg-destructive/90">
-                          Delete
+                          Eliminar
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -255,8 +256,8 @@ export default function GalleryPage() {
                 {isEditingName ? (
                   <div className="flex items-center gap-2">
                     <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="text-2xl font-bold" />
-                    <Button size="sm" onClick={handleSaveName}>Save</Button>
-                    <Button size="sm" variant="outline" onClick={() => setIsEditingName(false)}>Cancel</Button>
+                    <Button size="sm" onClick={handleSaveName}>Guardar</Button>
+                    <Button size="sm" variant="outline" onClick={() => setIsEditingName(false)}>Cancelar</Button>
                   </div>
                 ) : (
                   <DialogTitle className="text-3xl flex items-center">
@@ -267,63 +268,63 @@ export default function GalleryPage() {
                   </DialogTitle>
                 )}
                 <DialogDescription>
-                  Type: <Badge variant="outline" className="capitalize">{selectedCreation.type}</Badge> | Created: {formatDistanceToNow(new Date(selectedCreation.createdAt), { addSuffix: true })} | Updated: {formatDistanceToNow(new Date(selectedCreation.updatedAt), { addSuffix: true })}
+                  Tipo: <Badge variant="outline" className="capitalize">{selectedCreation.type === 'generated' ? 'generado' : selectedCreation.type === 'analyzed' ? 'analizado' : 'reimaginado'}</Badge> | Creado: {formatDistanceToNow(new Date(selectedCreation.createdAt), { addSuffix: true, locale: es })} | Actualizado: {formatDistanceToNow(new Date(selectedCreation.updatedAt), { addSuffix: true, locale: es })}
                 </DialogDescription>
               </DialogHeader>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-4">
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-lg text-primary">Image</h3>
+                  <h3 className="font-semibold text-lg text-primary">Imagen</h3>
                   {selectedCreation.imageData?.imageDataUri ? (
                     <Image src={selectedCreation.imageData.imageDataUri} alt={selectedCreation.name} width={400} height={400} className="rounded-lg shadow-md object-contain w-full" data-ai-hint="mythological art" />
                   ) : (
-                    <p className="text-muted-foreground">No image associated.</p>
+                    <p className="text-muted-foreground">No hay imagen asociada.</p>
                   )}
                   {selectedCreation.type === 'reimagined' && selectedCreation.originalImageData?.imageDataUri && (
                     <>
-                      <h3 className="font-semibold text-lg text-primary mt-4">Original Image</h3>
-                      <Image src={selectedCreation.originalImageData.imageDataUri} alt={`Original for ${selectedCreation.name}`} width={200} height={200} className="rounded-lg shadow-md object-contain w-full" data-ai-hint="source image" />
+                      <h3 className="font-semibold text-lg text-primary mt-4">Imagen Original</h3>
+                      <Image src={selectedCreation.originalImageData.imageDataUri} alt={`Original para ${selectedCreation.name}`} width={200} height={200} className="rounded-lg shadow-md object-contain w-full" data-ai-hint="source image" />
                     </>
                   )}
                 </div>
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-lg text-primary">Parameters</h3>
+                  <h3 className="font-semibold text-lg text-primary">Parámetros</h3>
                   <div className="bg-muted p-3 rounded-md">{renderParams(selectedCreation.params, selectedCreation.type)}</div>
 
                   {selectedCreation.textOutput && (
                     <>
-                      <h3 className="font-semibold text-lg text-primary mt-2">AI Output</h3>
+                      <h3 className="font-semibold text-lg text-primary mt-2">Salida de IA</h3>
                       <div className="bg-muted p-3 rounded-md space-y-2">
                         {selectedCreation.type === 'generated' && (selectedCreation.textOutput.data as any).prompt && (
                           <div>
-                            <p className="font-medium">Generated Prompt:</p>
+                            <p className="font-medium">Prompt Generado:</p>
                             <p className="text-sm text-muted-foreground break-words">{(selectedCreation.textOutput.data as any).prompt}</p>
                             <Button variant="outline" size="xs" className="mt-1" onClick={() => copyToClipboard((selectedCreation.textOutput!.data as any).prompt, "Prompt")}>
-                              <Copy className="mr-1 h-3 w-3" /> Copy
+                              <Copy className="mr-1 h-3 w-3" /> Copiar
                             </Button>
                           </div>
                         )}
                         {selectedCreation.type === 'analyzed' && (
                           <>
                             <div>
-                              <p className="font-medium">Visual Style:</p>
+                              <p className="font-medium">Estilo Visual:</p>
                               <p className="text-sm text-muted-foreground">{(selectedCreation.textOutput.data as any).visualStyle}</p>
                             </div>
                             <div>
-                              <p className="font-medium">Analysis:</p>
+                              <p className="font-medium">Análisis:</p>
                               <p className="text-sm text-muted-foreground break-words">{(selectedCreation.textOutput.data as any).analysis}</p>
-                              <Button variant="outline" size="xs" className="mt-1" onClick={() => copyToClipboard((selectedCreation.textOutput!.data as any).analysis, "Analysis")}>
-                                <Copy className="mr-1 h-3 w-3" /> Copy
+                              <Button variant="outline" size="xs" className="mt-1" onClick={() => copyToClipboard((selectedCreation.textOutput!.data as any).analysis, "Análisis")}>
+                                <Copy className="mr-1 h-3 w-3" /> Copiar
                               </Button>
                             </div>
                           </>
                         )}
                         {selectedCreation.type === 'reimagined' && (selectedCreation.textOutput.data as any).derivedPrompt && (
                            <div>
-                            <p className="font-medium">Derived Prompt:</p>
+                            <p className="font-medium">Prompt Derivado:</p>
                             <p className="text-sm text-muted-foreground break-words">{(selectedCreation.textOutput.data as any).derivedPrompt}</p>
                             <Button variant="outline" size="xs" className="mt-1" onClick={() => copyToClipboard((selectedCreation.textOutput!.data as any).derivedPrompt, "Prompt")}>
-                              <Copy className="mr-1 h-3 w-3" /> Copy
+                              <Copy className="mr-1 h-3 w-3" /> Copiar
                             </Button>
                           </div>
                         )}
@@ -335,7 +336,7 @@ export default function GalleryPage() {
               </ScrollArea>
               <DialogFooter className="mt-4">
                 <DialogClose asChild>
-                  <Button variant="outline">Close</Button>
+                  <Button variant="outline">Cerrar</Button>
                 </DialogClose>
               </DialogFooter>
             </DialogContent>
@@ -371,7 +372,7 @@ const ImageItem: React.FC<{ imageId: string, alt: string }> = ({ imageId, alt })
   }
 
   if (!imageUrl) {
-    return <div className="w-full h-full flex items-center justify-center bg-muted/50 text-xs text-muted-foreground p-2">Image not found</div>;
+    return <div className="w-full h-full flex items-center justify-center bg-muted/50 text-xs text-muted-foreground p-2">Imagen no encontrada</div>;
   }
 
   return <Image src={imageUrl} alt={alt} layout="fill" objectFit="cover" className="transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;

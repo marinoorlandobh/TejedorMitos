@@ -16,14 +16,14 @@ import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeUploadedImageAction } from '@/lib/actions';
 import type { AnalyzedParams } from '@/lib/types';
-import { MYTHOLOGICAL_CULTURES } from '@/lib/types'; // Assuming you want to use these for context
+import { MYTHOLOGICAL_CULTURES } from '@/lib/types'; 
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const analyzeImageSchema = z.object({
-  name: z.string().min(1, "Creation name is required.").max(100),
-  imageFile: z.custom<FileList>(val => val instanceof FileList && val.length > 0, "An image file is required."),
-  mythologicalContext: z.string().min(1, "Mythological context is required."),
-  entityTheme: z.string().min(1, "Entity/Theme is required.").max(150),
+  name: z.string().min(1, "El nombre del análisis es obligatorio.").max(100),
+  imageFile: z.custom<FileList>(val => val instanceof FileList && val.length > 0, "Se requiere un archivo de imagen."),
+  mythologicalContext: z.string().min(1, "El contexto mitológico es obligatorio."),
+  entityTheme: z.string().min(1, "La entidad/tema es obligatoria.").max(150),
   additionalDetails: z.string().optional().default(""),
 });
 
@@ -62,14 +62,14 @@ export default function AnalyzeImagePage() {
     const files = event.target.files;
     if (files && files.length > 0) {
       const file = files[0];
-      form.setValue("imageFile", files); // Update RHF state
+      form.setValue("imageFile", files); 
       const reader = new FileReader();
       reader.onloadend = () => {
         setUploadedImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     } else {
-      form.setValue("imageFile", new DataTransfer().files); // Clear RHF state
+      form.setValue("imageFile", new DataTransfer().files); 
       setUploadedImagePreview(null);
     }
   };
@@ -80,7 +80,7 @@ export default function AnalyzeImagePage() {
     setAnalysisResult(null);
 
     if (!data.imageFile || data.imageFile.length === 0) {
-      toast({ variant: "destructive", title: "Error", description: "Please upload an image." });
+      toast({ variant: "destructive", title: "Error", description: "Por favor, sube una imagen." });
       setIsLoading(false);
       return;
     }
@@ -90,7 +90,7 @@ export default function AnalyzeImagePage() {
     try {
       imageDataUri = await fileToDataUri(imageFile);
     } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to read image file." });
+      toast({ variant: "destructive", title: "Error", description: "Error al leer el archivo de imagen." });
       setIsLoading(false);
       return;
     }
@@ -113,13 +113,13 @@ export default function AnalyzeImagePage() {
         data.name,
         aiInputParams,
         { analysis: result.analysis, visualStyle: result.visualStyle },
-        undefined, // No new image generated, this is analysis of original
-        imageDataUri // Original image stored
+        undefined, 
+        imageDataUri 
       );
-      toast({ title: "Analysis Complete!", description: "Image analysis saved to your gallery." });
+      toast({ title: "¡Análisis Completado!", description: "El análisis de la imagen se ha guardado en tu galería." });
     } catch (error: any) {
       console.error("Error analyzing image:", error);
-      toast({ variant: "destructive", title: "Error", description: error.message || "Failed to analyze image." });
+      toast({ variant: "destructive", title: "Error", description: error.message || "Error al analizar la imagen." });
     } finally {
       setIsLoading(false);
     }
@@ -131,18 +131,18 @@ export default function AnalyzeImagePage() {
         <header className="mb-8">
           <h1 className="text-4xl font-headline font-bold text-primary flex items-center">
             <ImageIcon className="mr-3 h-10 w-10" />
-            Analyze Your Image
+            Analiza Tu Imagen
             <Sparkles className="ml-2 h-8 w-8 text-accent" />
           </h1>
           <p className="text-muted-foreground mt-2 text-lg">
-            Upload an image and let AI reveal its style and potential mythological connections.
+            Sube una imagen y deja que la IA revele su estilo y posibles conexiones mitológicas.
           </p>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle>Upload and Describe</CardTitle>
+              <CardTitle>Subir y Describir</CardTitle>
             </CardHeader>
             <CardContent>
               <Form {...form}>
@@ -152,9 +152,9 @@ export default function AnalyzeImagePage() {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Analysis Name</FormLabel>
+                        <FormLabel>Nombre del Análisis</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., Ancient Vase Study, Dragon Sculpture Analysis" {...field} />
+                          <Input placeholder="Ej: Estudio de Jarrón Antiguo, Análisis de Escultura de Dragón" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -164,9 +164,9 @@ export default function AnalyzeImagePage() {
                   <FormField
                     control={form.control}
                     name="imageFile"
-                    render={({ field: { onChange, ...fieldProps } }) => ( // Destructure onChange to handle it manually
+                    render={({ field: { onChange, ...fieldProps } }) => ( 
                       <FormItem>
-                        <FormLabel>Upload Image</FormLabel>
+                        <FormLabel>Subir Imagen</FormLabel>
                         <FormControl>
                           <div className="flex items-center justify-center w-full">
                             <label htmlFor="dropzone-file" className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer ${uploadedImagePreview ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
@@ -174,20 +174,20 @@ export default function AnalyzeImagePage() {
                                     {uploadedImagePreview ? (
                                         <>
                                         <CheckCircle className="w-10 h-10 mb-3 text-primary" />
-                                        <p className="mb-2 text-sm text-primary"><span className="font-semibold">Image Selected!</span></p>
+                                        <p className="mb-2 text-sm text-primary"><span className="font-semibold">¡Imagen Seleccionada!</span></p>
                                         <p className="text-xs text-muted-foreground">{form.getValues("imageFile")?.[0]?.name}</p>
                                         </>
                                     ) : (
                                         <>
                                         <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
-                                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                                        <p className="text-xs text-muted-foreground">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
+                                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Haz clic para subir</span> o arrastra y suelta</p>
+                                        <p className="text-xs text-muted-foreground">SVG, PNG, JPG o GIF (MAX. 800x400px)</p>
                                         </>
                                     )}
                                 </div>
                                 <Input id="dropzone-file" type="file" className="hidden" accept="image/*" 
-                                  {...fieldProps} // Pass rest of props like name, ref, onBlur
-                                  onChange={handleImageChange} // Use custom handler
+                                  {...fieldProps} 
+                                  onChange={handleImageChange} 
                                 />
                             </label>
                           </div> 
@@ -202,9 +202,9 @@ export default function AnalyzeImagePage() {
                     name="mythologicalContext"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Mythological Context</FormLabel>
+                        <FormLabel>Contexto Mitológico</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., Greek, Norse, Egyptian" {...field} />
+                          <Input placeholder="Ej: Griega, Nórdica, Egipcia" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -215,9 +215,9 @@ export default function AnalyzeImagePage() {
                     name="entityTheme"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Entity / Theme (for guidance)</FormLabel>
+                        <FormLabel>Entidad / Tema (orientativo)</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., Medusa, Yggdrasil, Anubis" {...field} />
+                          <Input placeholder="Ej: Medusa, Yggdrasil, Anubis" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -228,9 +228,9 @@ export default function AnalyzeImagePage() {
                     name="additionalDetails"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Additional Details (Optional)</FormLabel>
+                        <FormLabel>Detalles Adicionales (Opcional)</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Any specific aspects to focus on or known information." {...field} />
+                          <Textarea placeholder="Cualquier aspecto específico en el que centrarse o información conocida." {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -238,7 +238,7 @@ export default function AnalyzeImagePage() {
                   />
                   <Button type="submit" disabled={isLoading || !uploadedImagePreview} className="w-full">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                    Analyze Image
+                    Analizar Imagen
                   </Button>
                 </form>
               </Form>
@@ -247,29 +247,29 @@ export default function AnalyzeImagePage() {
 
           <Card className="shadow-lg flex flex-col">
             <CardHeader>
-              <CardTitle>Analysis Results</CardTitle>
-              <CardDescription>Insights from the AI will appear here.</CardDescription>
+              <CardTitle>Resultados del Análisis</CardTitle>
+              <CardDescription>Las percepciones de la IA aparecerán aquí.</CardDescription>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col items-center justify-center space-y-4">
               {uploadedImagePreview && (
                 <div className="w-full max-w-md aspect-video relative border rounded-lg overflow-hidden mb-4">
-                  <Image src={uploadedImagePreview} alt="Uploaded preview" layout="fill" objectFit="contain" data-ai-hint="uploaded image" />
+                  <Image src={uploadedImagePreview} alt="Vista previa de la imagen subida" layout="fill" objectFit="contain" data-ai-hint="uploaded image" />
                 </div>
               )}
               {isLoading && (
                 <div className="flex flex-col items-center text-muted-foreground">
                   <Loader2 className="h-16 w-16 animate-spin text-primary mb-4" />
-                  <p className="text-lg">Analyzing image... please wait.</p>
+                  <p className="text-lg">Analizando imagen... por favor espera.</p>
                 </div>
               )}
               {!isLoading && analysisResult && (
                 <div className="w-full space-y-4">
                   <div>
-                    <h3 className="font-semibold text-lg">Visual Style:</h3>
+                    <h3 className="font-semibold text-lg">Estilo Visual:</h3>
                     <p className="text-muted-foreground p-2 bg-muted rounded-md">{analysisResult.visualStyle}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Detailed Analysis:</h3>
+                    <h3 className="font-semibold text-lg">Análisis Detallado:</h3>
                     <ScrollArea className="h-48">
                       <p className="text-muted-foreground p-2 bg-muted rounded-md whitespace-pre-wrap">{analysisResult.analysis}</p>
                     </ScrollArea>
@@ -279,12 +279,12 @@ export default function AnalyzeImagePage() {
               {!isLoading && !analysisResult && !uploadedImagePreview && (
                  <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                   <ImageIcon className="h-12 w-12 mx-auto mb-2" />
-                  <p>Upload an image to begin analysis.</p>
+                  <p>Sube una imagen para comenzar el análisis.</p>
                 </div>
               )}
                {!isLoading && !analysisResult && uploadedImagePreview && (
                  <div className="text-center text-muted-foreground p-8">
-                  <p>Submit the form to get AI analysis.</p>
+                  <p>Envía el formulario para obtener el análisis de la IA.</p>
                 </div>
               )}
             </CardContent>
@@ -294,3 +294,4 @@ export default function AnalyzeImagePage() {
     </ScrollArea>
   );
 }
+
