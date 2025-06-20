@@ -1,0 +1,76 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ScrollText, Wand2, ImageIcon, GalleryVerticalEnd, Settings, Sparkles, Palette } from "lucide-react";
+import {
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Separator } from "@/components/ui/separator";
+
+const navItems = [
+  { href: "/create", label: "Create Myth", icon: Wand2 },
+  { href: "/analyze", label: "Analyze Image", icon: ImageIcon, subIcon: Sparkles },
+  { href: "/reimagine", label: "Reimagine Image", icon: Palette },
+  { href: "/gallery", label: "My Gallery", icon: GalleryVerticalEnd },
+  { href: "/settings", label: "Settings", icon: Settings },
+];
+
+export function AppSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <Sidebar variant="sidebar" collapsible="icon" side="left" className="border-r">
+      <SidebarHeader className="p-4 justify-between items-center">
+        <Link href="/create" className="flex items-center gap-2">
+          <ScrollText className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl font-headline font-semibold group-data-[collapsible=icon]:hidden">Myth Weaver</h1>
+        </Link>
+        <div className="block md:hidden">
+           <SidebarTrigger />
+        </div>
+      </SidebarHeader>
+      <Separator className="my-0" />
+      <SidebarContent className="flex-1 p-2">
+        <SidebarMenu>
+          {navItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <Link href={item.href} legacyBehavior passHref>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === item.href || (item.href !== "/create" && pathname.startsWith(item.href))}
+                  tooltip={{children: item.label, side: "right", className: "font-body"}}
+                  className="font-body"
+                >
+                  <a>
+                    <item.icon className="h-5 w-5" />
+                    <span>{item.label}</span>
+                    {item.subIcon && <item.subIcon className="ml-auto h-4 w-4 opacity-70" />}
+                  </a>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarContent>
+      <Separator className="my-0" />
+      <SidebarFooter className="p-4 flex items-center justify-between group-data-[collapsible=icon]:justify-center">
+         <div className="group-data-[collapsible=icon]:hidden">
+          <Button variant="outline" size="sm" onClick={() => window.open('https://github.com/your-repo/myth-weaver', '_blank')}>
+            View Source
+          </Button>
+         </div>
+        <ThemeToggle />
+      </SidebarFooter>
+    </Sidebar>
+  );
+}

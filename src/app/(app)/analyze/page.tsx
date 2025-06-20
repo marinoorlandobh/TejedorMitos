@@ -1,0 +1,296 @@
+"use client";
+
+import React, { useState, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { ImageIcon, Sparkles, Loader2, UploadCloud, CheckCircle } from 'lucide-react';
+import Image from 'next/image';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useHistory } from '@/contexts/HistoryContext';
+import { useToast } from '@/hooks/use-toast';
+import { analyzeUploadedImageAction } from '@/lib/actions';
+import type { AnalyzedParams } from '@/lib/types';
+import { MYTHOLOGICAL_CULTURES } from '@/lib/types'; // Assuming you want to use these for context
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const analyzeImageSchema = z.object({
+  name: z.string().min(1, "Creation name is required.").max(100),
+  imageFile: z.custom<FileList>(val => val instanceof FileList && val.length > 0, "An image file is required."),
+  mythologicalContext: z.string().min(1, "Mythological context is required."),
+  entityTheme: z.string().min(1, "Entity/Theme is required.").max(150),
+  additionalDetails: z.string().optional().default(""),
+});
+
+type AnalyzeImageFormData = z.infer<typeof analyzeImageSchema>;
+
+// Helper function to convert File to Data URI
+const fileToDataUri = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+
+export default function AnalyzeImagePage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<{ analysis: string; visualStyle: string } | null>(null);
+  const { addCreation } = useHistory();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const form = useForm<AnalyzeImageFormData>({
+    resolver: zodResolver(analyzeImageSchema),
+    defaultValues: {
+      name: '',
+      mythologicalContext: MYTHOLOGICAL_CULTURES[0],
+      entityTheme: '',
+      additionalDetails: '',
+    },
+  });
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      form.setValue("imageFile", files); // Update RHF state
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      form.setValue("imageFile", new DataTransfer().files); // Clear RHF state
+      setUploadedImagePreview(null);
+    }
+  };
+  
+
+  async function onSubmit(data: AnalyzeImageFormData) {
+    setIsLoading(true);
+    setAnalysisResult(null);
+
+    if (!data.imageFile || data.imageFile.length === 0) {
+      toast({ variant: "destructive", title: "Error", description: "Please upload an image." });
+      setIsLoading(false);
+      return;
+    }
+
+    const imageFile = data.imageFile[0];
+    let imageDataUri: string;
+    try {
+      imageDataUri = await fileToDataUri(imageFile);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to read image file." });
+      setIsLoading(false);
+      return;
+    }
+    
+    const aiInputParams: AnalyzedParams = {
+      mythologicalContext: data.mythologicalContext,
+      entityTheme: data.entityTheme,
+      additionalDetails: data.additionalDetails,
+    };
+
+    try {
+      const result = await analyzeUploadedImageAction({
+        imageDataUri,
+        ...aiInputParams
+      });
+      setAnalysisResult(result);
+
+      await addCreation(
+        'analyzed',
+        data.name,
+        aiInputParams,
+        { analysis: result.analysis, visualStyle: result.visualStyle },
+        undefined, // No new image generated, this is analysis of original
+        imageDataUri // Original image stored
+      );
+      toast({ title: "Analysis Complete!", description: "Image analysis saved to your gallery." });
+    } catch (error: any) {
+      console.error("Error analyzing image:", error);
+      toast({ variant: "destructive", title: "Error", description: error.message || "Failed to analyze image." });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <ScrollArea className="h-full">
+      <div className="container mx-auto p-4 md:p-8">
+        <header className="mb-8">
+          <h1 className="text-4xl font-headline font-bold text-primary flex items-center">
+            <ImageIcon className="mr-3 h-10 w-10" />
+            Analyze Your Image
+            <Sparkles className="ml-2 h-8 w-8 text-accent" />
+          </h1>
+          <p className="text-muted-foreground mt-2 text-lg">
+            Upload an image and let AI reveal its style and potential mythological connections.
+          </p>
+        </header>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Upload and Describe</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Analysis Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Ancient Vase Study, Dragon Sculpture Analysis" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="imageFile"
+                    render={({ field: { onChange, ...fieldProps } }) => ( // Destructure onChange to handle it manually
+                      <FormItem>
+                        <FormLabel>Upload Image</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center justify-center w-full">
+                            <label htmlFor="dropzone-file" className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer ${uploadedImagePreview ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    {uploadedImagePreview ? (
+                                        <>
+                                        <CheckCircle className="w-10 h-10 mb-3 text-primary" />
+                                        <p className="mb-2 text-sm text-primary"><span className="font-semibold">Image Selected!</span></p>
+                                        <p className="text-xs text-muted-foreground">{form.getValues("imageFile")?.[0]?.name}</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                        <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
+                                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                                        <p className="text-xs text-muted-foreground">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
+                                        </>
+                                    )}
+                                </div>
+                                <Input id="dropzone-file" type="file" className="hidden" accept="image/*" 
+                                  {...fieldProps} // Pass rest of props like name, ref, onBlur
+                                  onChange={handleImageChange} // Use custom handler
+                                />
+                            </label>
+                          </div> 
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="mythologicalContext"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mythological Context</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Greek, Norse, Egyptian" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="entityTheme"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Entity / Theme (for guidance)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Medusa, Yggdrasil, Anubis" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="additionalDetails"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Additional Details (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Any specific aspects to focus on or known information." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={isLoading || !uploadedImagePreview} className="w-full">
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    Analyze Image
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg flex flex-col">
+            <CardHeader>
+              <CardTitle>Analysis Results</CardTitle>
+              <CardDescription>Insights from the AI will appear here.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col items-center justify-center space-y-4">
+              {uploadedImagePreview && (
+                <div className="w-full max-w-md aspect-video relative border rounded-lg overflow-hidden mb-4">
+                  <Image src={uploadedImagePreview} alt="Uploaded preview" layout="fill" objectFit="contain" data-ai-hint="uploaded image" />
+                </div>
+              )}
+              {isLoading && (
+                <div className="flex flex-col items-center text-muted-foreground">
+                  <Loader2 className="h-16 w-16 animate-spin text-primary mb-4" />
+                  <p className="text-lg">Analyzing image... please wait.</p>
+                </div>
+              )}
+              {!isLoading && analysisResult && (
+                <div className="w-full space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">Visual Style:</h3>
+                    <p className="text-muted-foreground p-2 bg-muted rounded-md">{analysisResult.visualStyle}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Detailed Analysis:</h3>
+                    <ScrollArea className="h-48">
+                      <p className="text-muted-foreground p-2 bg-muted rounded-md whitespace-pre-wrap">{analysisResult.analysis}</p>
+                    </ScrollArea>
+                  </div>
+                </div>
+              )}
+              {!isLoading && !analysisResult && !uploadedImagePreview && (
+                 <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                  <ImageIcon className="h-12 w-12 mx-auto mb-2" />
+                  <p>Upload an image to begin analysis.</p>
+                </div>
+              )}
+               {!isLoading && !analysisResult && uploadedImagePreview && (
+                 <div className="text-center text-muted-foreground p-8">
+                  <p>Submit the form to get AI analysis.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </ScrollArea>
+  );
+}

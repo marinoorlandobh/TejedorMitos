@@ -1,0 +1,360 @@
+"use client";
+
+import React, { useState, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Palette, Loader2, UploadCloud, CheckCircle, Copy } from 'lucide-react';
+import Image from 'next/image';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useHistory } from '@/contexts/HistoryContext';
+import { useToast } from '@/hooks/use-toast';
+import { reimagineUploadedImageAction } from '@/lib/actions';
+import type { ReimaginedParams } from '@/lib/types';
+import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const reimagineImageSchema = z.object({
+  name: z.string().min(1, "Creation name is required.").max(100),
+  originalImageFile: z.custom<FileList>(val => val instanceof FileList && val.length > 0, "An original image file is required."),
+  contextCulture: z.string().min(1, "Original image context culture is required."),
+  contextEntity: z.string().min(1, "Original image context entity/theme is required.").max(150),
+  contextDetails: z.string().min(1, "Original image context details are required.").max(1000),
+  visualStyle: z.string().min(1, "New visual style is required."),
+  aspectRatio: z.string().min(1, "New aspect ratio is required."),
+  imageQuality: z.string().min(1, "New image quality is required."),
+});
+
+type ReimagineImageFormData = z.infer<typeof reimagineImageSchema>;
+
+// Helper function to convert File to Data URI
+const fileToDataUri = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+export default function ReimagineImagePage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [originalImagePreview, setOriginalImagePreview] = useState<string | null>(null);
+  const [reimaginedImage, setReimaginedImage] = useState<string | null>(null);
+  const [derivedPrompt, setDerivedPrompt] = useState<string | null>(null);
+  const { addCreation } = useHistory();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const form = useForm<ReimagineImageFormData>({
+    resolver: zodResolver(reimagineImageSchema),
+    defaultValues: {
+      name: '',
+      contextCulture: MYTHOLOGICAL_CULTURES[0],
+      contextEntity: '',
+      contextDetails: '',
+      visualStyle: IMAGE_STYLES[0],
+      aspectRatio: ASPECT_RATIOS[0],
+      imageQuality: IMAGE_QUALITIES[0],
+    },
+  });
+
+ const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      form.setValue("originalImageFile", files); 
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setOriginalImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      form.setValue("originalImageFile", new DataTransfer().files);
+      setOriginalImagePreview(null);
+    }
+  };
+
+  async function onSubmit(data: ReimagineImageFormData) {
+    setIsLoading(true);
+    setReimaginedImage(null);
+    setDerivedPrompt(null);
+
+    if (!data.originalImageFile || data.originalImageFile.length === 0) {
+      toast({ variant: "destructive", title: "Error", description: "Please upload an original image." });
+      setIsLoading(false);
+      return;
+    }
+    
+    const imageFile = data.originalImageFile[0];
+    let originalImageDataUri: string;
+    try {
+      originalImageDataUri = await fileToDataUri(imageFile);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to read image file." });
+      setIsLoading(false);
+      return;
+    }
+
+    const aiInputParams: ReimaginedParams = {
+      contextCulture: data.contextCulture,
+      contextEntity: data.contextEntity,
+      contextDetails: data.contextDetails,
+      visualStyle: data.visualStyle,
+      aspectRatio: data.aspectRatio,
+      imageQuality: data.imageQuality,
+    };
+
+    try {
+      const result = await reimagineUploadedImageAction({
+        originalImage: originalImageDataUri,
+        ...aiInputParams
+      });
+      setReimaginedImage(result.reimaginedImage);
+      setDerivedPrompt(result.derivedPrompt);
+
+      await addCreation(
+        'reimagined',
+        data.name,
+        aiInputParams,
+        { derivedPrompt: result.derivedPrompt },
+        result.reimaginedImage,
+        originalImageDataUri
+      );
+      toast({ title: "Image Reimagined!", description: "Your new creation has been saved to your gallery." });
+    } catch (error: any) {
+      console.error("Error reimagining image:", error);
+      toast({ variant: "destructive", title: "Error", description: error.message || "Failed to reimagine image." });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+  
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied!", description: "Prompt copied to clipboard." });
+  };
+
+
+  return (
+    <ScrollArea className="h-full">
+      <div className="container mx-auto p-4 md:p-8">
+        <header className="mb-8">
+          <h1 className="text-4xl font-headline font-bold text-primary flex items-center">
+            <Palette className="mr-3 h-10 w-10" />
+            Reimagine Your Image
+          </h1>
+          <p className="text-muted-foreground mt-2 text-lg">
+            Upload an image and transform it with a new mythological context and visual style.
+          </p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <Card className="lg:col-span-2 shadow-lg">
+            <CardHeader>
+              <CardTitle>Define Transformation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>New Creation Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Cyberpunk Medusa, Steampunk Griffin" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="originalImageFile"
+                     render={({ field: { onChange, ...fieldProps } }) => (
+                      <FormItem>
+                        <FormLabel>Upload Original Image</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center justify-center w-full">
+                            <label htmlFor="dropzone-file-reimagine" className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer ${originalImagePreview ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    {originalImagePreview ? (
+                                        <>
+                                        <CheckCircle className="w-8 h-8 mb-2 text-primary" />
+                                        <p className="mb-1 text-sm text-primary"><span className="font-semibold">Image Selected!</span></p>
+                                        <p className="text-xs text-muted-foreground">{form.getValues("originalImageFile")?.[0]?.name}</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                        <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
+                                        <p className="mb-1 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span></p>
+                                        <p className="text-xs text-muted-foreground">Original image to transform</p>
+                                        </>
+                                    )}
+                                </div>
+                                <Input id="dropzone-file-reimagine" type="file" className="hidden" accept="image/*" 
+                                  {...fieldProps}
+                                  onChange={handleImageChange}
+                                />
+                            </label>
+                          </div> 
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <CardDescription>Original Image Context:</CardDescription>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="contextCulture"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Culture</FormLabel>
+                           <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger><SelectValue placeholder="Select culture" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {MYTHOLOGICAL_CULTURES.map(c => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="contextEntity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Entity/Theme</FormLabel>
+                          <FormControl><Input placeholder="e.g., Athena, Sphinx" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                      control={form.control}
+                      name="contextDetails"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Descriptive Details</FormLabel>
+                          <FormControl><Textarea placeholder="Details about the original image context" {...field} rows={2}/></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  
+                  <CardDescription>New Visual Parameters:</CardDescription>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="visualStyle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>New Visual Style</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select new style" /></SelectTrigger></FormControl>
+                            <SelectContent>{IMAGE_STYLES.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="aspectRatio"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>New Aspect Ratio</FormLabel>
+                           <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select new aspect ratio" /></SelectTrigger></FormControl>
+                            <SelectContent>{ASPECT_RATIOS.map(r => (<SelectItem key={r} value={r}>{r}</SelectItem>))}</SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                   <FormField
+                      control={form.control}
+                      name="imageQuality"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>New Image Quality</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select new quality" /></SelectTrigger></FormControl>
+                            <SelectContent>{IMAGE_QUALITIES.map(q => (<SelectItem key={q} value={q}>{q}</SelectItem>))}</SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  <Button type="submit" disabled={isLoading || !originalImagePreview} className="w-full">
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Palette className="mr-2 h-4 w-4" />}
+                    Reimagine Image
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-8">
+            <Card className="shadow-lg">
+              <CardHeader><CardTitle>Original Image</CardTitle></CardHeader>
+              <CardContent className="flex items-center justify-center min-h-[200px]">
+                {originalImagePreview ? (
+                  <Image src={originalImagePreview} alt="Original image preview" width={300} height={300} className="rounded-lg object-contain max-h-[250px]" data-ai-hint="uploaded image" />
+                ) : (
+                  <div className="text-center text-muted-foreground p-4 border-2 border-dashed rounded-lg">
+                    <UploadCloud className="h-10 w-10 mx-auto mb-2" />
+                    <p>Upload an image to see preview.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="shadow-lg">
+              <CardHeader><CardTitle>Reimagined Image</CardTitle></CardHeader>
+              <CardContent className="flex flex-col items-center justify-center min-h-[200px]">
+                {isLoading && (
+                  <div className="text-center text-muted-foreground">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
+                    <p>Reimagining...</p>
+                  </div>
+                )}
+                {!isLoading && reimaginedImage && (
+                  <Image src={reimaginedImage} alt="Reimagined image" width={300} height={300} className="rounded-lg object-contain max-h-[250px] shadow-md" data-ai-hint="transformed art" />
+                )}
+                {!isLoading && !reimaginedImage && (
+                  <div className="text-center text-muted-foreground p-4 border-2 border-dashed rounded-lg">
+                     <Palette className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p>New image will appear here.</p>
+                  </div>
+                )}
+              </CardContent>
+               {derivedPrompt && !isLoading && (
+                <CardFooter className="flex-col items-start gap-2 border-t pt-4">
+                  <h3 className="font-semibold">Derived Prompt:</h3>
+                  <p className="text-sm text-muted-foreground bg-muted p-2 rounded-md break-words">{derivedPrompt}</p>
+                  <Button variant="outline" size="sm" onClick={() => copyToClipboard(derivedPrompt)}>
+                    <Copy className="mr-2 h-4 w-4" /> Copy Prompt
+                  </Button>
+                </CardFooter>
+              )}
+            </Card>
+          </div>
+        </div>
+      </div>
+    </ScrollArea>
+  );
+}
