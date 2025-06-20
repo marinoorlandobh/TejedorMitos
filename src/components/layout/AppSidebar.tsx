@@ -45,20 +45,18 @@ export function AppSidebar() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.href || (item.href !== "/create" && pathname.startsWith(item.href))}
-                  tooltip={{children: item.label, side: "right", className: "font-body"}}
-                  className="font-body"
-                >
-                  <a>
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.label}</span>
-                    {item.subIcon && <item.subIcon className="ml-auto h-4 w-4 opacity-70" />}
-                  </a>
-                </SidebarMenuButton>
-              </Link>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === item.href || (item.href !== "/create" && pathname.startsWith(item.href))}
+                tooltip={{children: item.label, side: "right", className: "font-body"}}
+                className="font-body"
+              >
+                <Link href={item.href}>
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                  {item.subIcon && <item.subIcon className="ml-auto h-4 w-4 opacity-70" />}
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
@@ -75,3 +73,4 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
