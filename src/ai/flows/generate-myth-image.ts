@@ -49,10 +49,8 @@ const generateMythImageFlow = ai.defineFlow(
     outputSchema: GenerateMythImageOutputSchema,
   },
   async input => {
-    // IMPORTANT: ONLY the googleai/gemini-2.0-flash-exp model is able to generate images.
-    // You MUST use exactly this model to generate images.
     const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-exp',
+      model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: `Culture: ${input.culture}, Entity/Theme: ${input.entity}, Details: ${input.details}, Style: ${input.style}, Aspect Ratio: ${input.aspectRatio}, Image Quality: ${input.imageQuality}`,
       config: {
         responseModalities: ['TEXT', 'IMAGE'], // MUST provide both TEXT and IMAGE, IMAGE only won't work

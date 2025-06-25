@@ -77,7 +77,7 @@ const reimagineUploadedImageFlow = ai.defineFlow(
     const {output: {derivedPrompt}} = await reimagineImagePrompt(input);
 
     const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-exp',
+      model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: [
         {media: {url: input.originalImage}},
         {text: derivedPrompt},
