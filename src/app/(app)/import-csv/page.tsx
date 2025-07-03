@@ -34,6 +34,7 @@ export default function ImportCsvPage() {
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
+                encoding: "UTF-8", // Specify UTF-8 encoding to handle special characters
                 complete: (results) => {
                     const headers = results.meta.fields || [];
                     if (headers.length === 0 || !results.data.length) {
