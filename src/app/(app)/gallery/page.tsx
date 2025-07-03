@@ -195,7 +195,7 @@ export default function GalleryPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredAndSortedCreations.map((creation) => (
-              <Card key={creation.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <Card key={creation.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-lg leading-tight line-clamp-2 hover:text-primary transition-colors">{creation.name}</CardTitle>
@@ -210,7 +210,7 @@ export default function GalleryPage() {
                     {formatDistanceToNow(new Date(creation.createdAt), { addSuffix: true, locale: es })}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-grow flex items-center justify-center p-0 aspect-square bg-muted/30">
+                <CardContent className="relative flex-grow flex items-center justify-center p-0 aspect-square bg-muted/30">
                   {creation.imageId ? (
                     <ImageItem imageId={creation.imageId} alt={creation.name} />
                   ) : (
@@ -375,6 +375,5 @@ const ImageItem: React.FC<{ imageId: string, alt: string }> = ({ imageId, alt })
     return <div className="w-full h-full flex items-center justify-center bg-muted/50 text-xs text-muted-foreground p-2">Imagen no encontrada</div>;
   }
 
-  return <Image src={imageUrl} alt={alt} layout="fill" objectFit="cover" className="transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;
+  return <Image src={imageUrl} alt={alt} fill className="object-cover transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;
 };
-

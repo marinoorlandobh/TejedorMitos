@@ -253,7 +253,7 @@ export default function AnalyzeImagePage() {
             <CardContent className="flex-grow flex flex-col items-center justify-center space-y-4">
               {uploadedImagePreview && (
                 <div className="w-full max-w-md aspect-video relative border rounded-lg overflow-hidden mb-4">
-                  <Image src={uploadedImagePreview} alt="Vista previa de la imagen subida" layout="fill" objectFit="contain" data-ai-hint="uploaded image" />
+                  <Image src={uploadedImagePreview} alt="Vista previa de la imagen subida" fill className="object-contain" data-ai-hint="uploaded image" />
                 </div>
               )}
               {isLoading && (
@@ -294,4 +294,3 @@ export default function AnalyzeImagePage() {
     </ScrollArea>
   );
 }
-
