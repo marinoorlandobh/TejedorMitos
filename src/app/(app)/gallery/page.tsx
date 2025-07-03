@@ -27,6 +27,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CreationFull extends Creation {
   imageData?: ImageDataModel;
@@ -43,6 +44,7 @@ export default function GalleryPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const { toast } = useToast();
+  const [copyingId, setCopyingId] = useState<string | null>(null);
 
   const filteredAndSortedCreations = useMemo(() => {
     let filtered = creations.filter(creation =>
@@ -104,6 +106,32 @@ export default function GalleryPage() {
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "¡Copiado!", description: `${type} copiado al portapapeles.` });
+  };
+  
+  const handleCopyPrompt = async (creation: Creation) => {
+    if (!creation.outputId) {
+      toast({ variant: "destructive", title: "Error", description: "No se encontró un ID de salida para esta creación." });
+      return;
+    }
+    setCopyingId(creation.id);
+    try {
+      const textOutput = await getTextOutput(creation.outputId);
+      if (textOutput) {
+        const prompt = (textOutput.data as any).prompt || (textOutput.data as any).derivedPrompt;
+        if (prompt) {
+          copyToClipboard(prompt, "Prompt");
+        } else {
+          toast({ variant: "destructive", title: "Error", description: "No se encontró un prompt para copiar." });
+        }
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo obtener la información del prompt." });
+      }
+    } catch (e) {
+      console.error("Error copying prompt from gallery:", e);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo copiar el prompt." });
+    } finally {
+      setCopyingId(null);
+    }
   };
 
   const renderParams = (params: Creation['params'], type: Creation['type']) => {
@@ -234,27 +262,59 @@ export default function GalleryPage() {
                   <Button variant="outline" size="sm" onClick={() => handleViewDetails(creation)}>
                     <ExternalLink className="mr-2 h-4 w-4" /> Ver
                   </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Esta acción no se puede deshacer. Esto eliminará permanentemente "{creation.name}".
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(creation.id)} className="bg-destructive hover:bg-destructive/90">
-                          Eliminar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <div className="flex items-center gap-1">
+                    {['generated', 'reimagined'].includes(creation.type) && creation.outputId && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCopyPrompt(creation)}
+                            disabled={copyingId === creation.id}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            {copyingId === creation.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Copiar Prompt</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Eliminar</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Esto eliminará permanentemente "{creation.name}".
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(creation.id)} className="bg-destructive hover:bg-destructive/90">
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </CardFooter>
               </Card>
             ))}
