@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import * as pdfjsLib from 'pdfjs-dist';
 import { FileText, UploadCloud, Loader2, Sparkles, Wand2, Copy } from 'lucide-react';
 
@@ -25,6 +26,7 @@ export default function ImportPdfPage() {
     const [analysisResult, setAnalysisResult] = useState<ExtractMythologiesOutput | null>(null);
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const router = useRouter();
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -80,6 +82,11 @@ export default function ImportPdfPage() {
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
         toast({ title: "¡Copiado!", description: "Prompt copiado al portapapeles." });
+    };
+
+    const handleCreateFromPrompt = (prompt: string) => {
+        const url = `/create?prompt=${encodeURIComponent(prompt)}`;
+        router.push(url);
     };
 
     return (
@@ -157,11 +164,16 @@ export default function ImportPdfPage() {
                                                 <AccordionContent>
                                                     <ul className="space-y-3">
                                                         {myth.prompts.map((prompt, pIndex) => (
-                                                            <li key={pIndex} className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md flex justify-between items-center gap-2">
-                                                                <span className="flex-1">{prompt}</span>
-                                                                <Button variant="ghost" size="icon" onClick={() => copyToClipboard(prompt)} title="Copiar prompt" className="shrink-0">
-                                                                    <Copy className="h-4 w-4" />
-                                                                </Button>
+                                                            <li key={pIndex} className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md flex justify-between items-start gap-2">
+                                                                <span className="flex-1 pt-1.5">{prompt}</span>
+                                                                <div className="flex shrink-0">
+                                                                    <Button variant="ghost" size="icon" onClick={() => handleCreateFromPrompt(prompt)} title="Crear con este prompt" className="shrink-0">
+                                                                        <Wand2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                    <Button variant="ghost" size="icon" onClick={() => copyToClipboard(prompt)} title="Copiar prompt" className="shrink-0">
+                                                                        <Copy className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
                                                             </li>
                                                         ))}
                                                     </ul>

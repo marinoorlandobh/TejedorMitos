@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -39,6 +40,7 @@ export default function CreateMythPage() {
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const { addCreation } = useHistory();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
 
   const form = useForm<CreateMythFormData>({
     resolver: zodResolver(createMythSchema),
@@ -53,6 +55,18 @@ export default function CreateMythPage() {
       imageQuality: IMAGE_QUALITIES[0],
     },
   });
+
+  useEffect(() => {
+    const promptFromImport = searchParams.get('prompt');
+    if (promptFromImport) {
+        form.setValue('details', decodeURIComponent(promptFromImport));
+        toast({
+            title: "Prompt importado",
+            description: "El campo de detalles ha sido rellenado.",
+        });
+    }
+  }, [searchParams, form, toast]);
+
 
   const selectedCulture = form.watch('culture');
 
@@ -312,4 +326,3 @@ export default function CreateMythPage() {
     </ScrollArea>
   );
 }
-
