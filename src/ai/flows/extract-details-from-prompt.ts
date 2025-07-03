@@ -52,7 +52,13 @@ const extractDetailsFlow = ai.defineFlow(
     outputSchema: ExtractDetailsOutputSchema,
   },
   async (input) => {
+    if (!input.promptText?.trim()) {
+      throw new Error("El texto del prompt no puede estar vacío.");
+    }
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      throw new Error("La IA no pudo extraer un nombre y entidad válidos del prompt. Puede que sea demasiado ambiguo.");
+    }
+    return output;
   }
 );

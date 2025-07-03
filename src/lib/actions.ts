@@ -55,9 +55,9 @@ export async function extractDetailsFromPromptAction(input: ExtractDetailsInput)
   try {
     const result = await extractDetailsFromPromptFlow(input);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in extractDetailsFromPromptAction:", error);
-    throw new Error("Failed to extract details from prompt. Please try again.");
+    throw new Error(error.message || "No se pudieron extraer los detalles del prompt. Por favor, inténtalo de nuevo.");
   }
 }
 
