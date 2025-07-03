@@ -80,6 +80,7 @@ export default function ImportCsvPage() {
         }
         
         const hasCulture = parsedData.headers.includes('culture');
+        let cultureWasCopied = false;
 
         const formattedPrompts = parsedData.rows.map(row => {
             const details = row.details?.trim();
@@ -87,6 +88,7 @@ export default function ImportCsvPage() {
 
             if (hasCulture && row.culture?.trim()) {
                 const culture = row.culture.trim();
+                cultureWasCopied = true;
                 return `${culture};${details}`;
             }
             return details;
@@ -97,7 +99,9 @@ export default function ImportCsvPage() {
             navigator.clipboard.writeText(formattedPrompts);
             toast({
                 title: "¡Prompts Copiados!",
-                description: "Tus prompts están en tu portapapeles, listos para pegar en Creación en Lote.",
+                description: cultureWasCopied
+                    ? "Se han copiado los prompts con el formato 'cultura;prompt'."
+                    : "Los prompts están listos para ser pegados en Creación en Lote.",
             });
         } else {
              toast({
