@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ScrollText, Wand2, ImageIcon, GalleryVerticalEnd, Settings, Sparkles, Palette, FileText } from "lucide-react";
+import { ScrollText, Wand2, ImageIcon, GalleryVerticalEnd, Settings, Sparkles, Palette, FileText, Layers } from "lucide-react";
 import {
   Sidebar,
   SidebarHeader,
@@ -22,6 +22,7 @@ const navItems = [
   { href: "/create", label: "Crear Mito", icon: Wand2 },
   { href: "/analyze", label: "Analizar Imagen", icon: ImageIcon, subIcon: Sparkles },
   { href: "/reimagine", label: "Reimaginar Imagen", icon: Palette },
+  { href: "/batch-create", label: "Creación en Lote", icon: Layers },
   { href: "/import", label: "Importar PDF", icon: FileText },
   { href: "/gallery", label: "Mi Galería", icon: GalleryVerticalEnd },
   { href: "/settings", label: "Ajustes", icon: Settings },
@@ -45,9 +46,11 @@ export function AppSidebar() {
       <SidebarContent className="flex-1 p-2">
         <SidebarMenu>
           {navItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
+             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
+                variant="default"
+                size="default"
                 isActive={pathname === item.href || (item.href !== "/create" && pathname.startsWith(item.href))}
                 tooltip={{children: item.label, side: "right", className: "font-body"}}
                 className="font-body"
@@ -74,4 +77,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-

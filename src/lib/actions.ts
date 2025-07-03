@@ -1,3 +1,4 @@
+
 // src/lib/actions.ts
 "use server";
 
@@ -5,6 +6,7 @@ import { generateMythImage as generateMythImageFlow, type GenerateMythImageInput
 import { analyzeUploadedImage as analyzeUploadedImageFlow, type AnalyzeUploadedImageInput, type AnalyzeUploadedImageOutput } from "@/ai/flows/analyze-uploaded-image";
 import { reimagineUploadedImage as reimagineUploadedImageFlow, type ReimagineUploadedImageInput, type ReimagineUploadedImageOutput } from "@/ai/flows/reimagine-uploaded-image";
 import { extractMythologiesFromText as extractMythologiesFlow, type ExtractMythologiesInput, type ExtractMythologiesOutput } from "@/ai/flows/extract-mythologies-flow";
+import { extractDetailsFromPrompt as extractDetailsFromPromptFlow, type ExtractDetailsInput, type ExtractDetailsOutput } from "@/ai/flows/extract-details-from-prompt";
 
 export async function generateMythImageAction(input: GenerateMythImageInput): Promise<GenerateMythImageOutput> {
   try {
@@ -44,5 +46,15 @@ export async function extractMythologiesAction(input: ExtractMythologiesInput): 
   } catch (error) {
     console.error("Error in extractMythologiesAction:", error);
     throw new Error("Failed to extract mythologies from text. Please try again.");
+  }
+}
+
+export async function extractDetailsFromPromptAction(input: ExtractDetailsInput): Promise<ExtractDetailsOutput> {
+  try {
+    const result = await extractDetailsFromPromptFlow(input);
+    return result;
+  } catch (error) {
+    console.error("Error in extractDetailsFromPromptAction:", error);
+    throw new Error("Failed to extract details from prompt. Please try again.");
   }
 }
