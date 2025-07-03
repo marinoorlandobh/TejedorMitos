@@ -34,7 +34,6 @@ export default function ImportCsvPage() {
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
-                encoding: "UTF-8", // Specify UTF-8 encoding to handle special characters
                 complete: (results) => {
                     const headers = results.meta.fields || [];
                     if (headers.length === 0 || !results.data.length) {
@@ -71,7 +70,10 @@ export default function ImportCsvPage() {
             return;
         }
 
-        if (!parsedData.headers.includes('details')) {
+        const detailsHeader = parsedData.headers.find(h => h.toLowerCase().trim() === 'details');
+        const cultureHeader = parsedData.headers.find(h => h.toLowerCase().trim() === 'culture');
+
+        if (!detailsHeader) {
              toast({
                 variant: "destructive",
                 title: "No se pueden copiar los prompts",
@@ -80,15 +82,14 @@ export default function ImportCsvPage() {
             return;
         }
         
-        const hasCulture = parsedData.headers.includes('culture');
         let cultureWasCopied = false;
 
         const formattedPrompts = parsedData.rows.map(row => {
-            const details = row.details?.trim();
+            const details = row[detailsHeader]?.trim();
             if (!details) return null;
 
-            if (hasCulture && row.culture?.trim()) {
-                const culture = row.culture.trim();
+            if (cultureHeader && row[cultureHeader]?.trim()) {
+                const culture = row[cultureHeader].trim();
                 cultureWasCopied = true;
                 return `${culture};${details}`;
             }
@@ -112,6 +113,8 @@ export default function ImportCsvPage() {
             });
         }
     };
+
+    const hasDetailsColumn = parsedData?.headers.some(h => h.toLowerCase().trim() === 'details');
 
     return (
         <ScrollArea className="h-full">
@@ -156,7 +159,7 @@ export default function ImportCsvPage() {
                             </label>
                         </CardContent>
                         <CardFooter>
-                           <Button onClick={handleCopyPrompts} disabled={!parsedData || isLoading || !parsedData.headers.includes('details')} className="w-full">
+                           <Button onClick={handleCopyPrompts} disabled={!parsedData || isLoading || !hasDetailsColumn} className="w-full">
                                 <Copy className="mr-2 h-4 w-4" />
                                 2. Copiar Prompts para Lote
                            </Button>
