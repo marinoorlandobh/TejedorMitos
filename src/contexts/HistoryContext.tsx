@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -37,12 +38,35 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // One-time data migration to fix encoding issues
   useEffect(() => {
     const runMigration = async () => {
-      const migrationKey = 'data_migration_v2_fix_nordica'; // Use a new key for this specific migration
+      const migrationKey = 'data_migration_v3_fix_general_encoding'; // New key for the general fix
       if (localStorage.getItem(migrationKey)) {
         return; // Migration already done
       }
 
-      console.log("Running one-time data migration to fix 'Nórdica' encoding...");
+      console.log("Running one-time data migration to fix general encoding issues...");
+      
+      const fixEncoding = (str: string | undefined): string | undefined => {
+          if (!str) return str;
+          // This function handles common UTF-8 characters misinterpreted as ISO-8859-1/Windows-1252
+          return str
+              .replace(/Ã¡/g, 'á')
+              .replace(/Ã©/g, 'é')
+              .replace(/Ã­/g, 'í')
+              .replace(/Ã³/g, 'ó')
+              .replace(/Ãº/g, 'ú')
+              .replace(/Ã±/g, 'ñ')
+              .replace(/Ã/g, 'Á')
+              .replace(/Ã‰/g, 'É')
+              .replace(/Ã/g, 'Í')
+              .replace(/Ã“/g, 'Ó')
+              .replace(/Ãš/g, 'Ú')
+              .replace(/Ã‘/g, 'Ñ')
+              .replace(/Â¿/g, '¿')
+              .replace(/Â¡/g, '¡')
+              // Also fix the specific case of the replacement character if it's found
+              .replace(/Nrdica/g, 'Nórdica');
+      };
+
       try {
         await db.transaction('rw', db.creations, async () => {
           const creationsToFix = await db.creations.toArray();
@@ -51,23 +75,22 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
           for (const creation of creationsToFix) {
             let needsUpdate = false;
             
+            const newName = fixEncoding(creation.name);
             const newParams = { ...creation.params } as any;
-            const newName = creation.name.replace(/Nrdica/g, 'Nórdica');
 
             if (newName !== creation.name) {
               needsUpdate = true;
             }
-            if (newParams.culture === 'Nrdica') {
-              newParams.culture = 'Nórdica';
-              needsUpdate = true;
-            }
-            if (newParams.mythologicalContext === 'Nrdica') {
-              newParams.mythologicalContext = 'Nórdica';
-              needsUpdate = true;
-            }
-            if (newParams.contextCulture === 'Nrdica') {
-              newParams.contextCulture = 'Nórdica';
-              needsUpdate = true;
+
+            // Fix all relevant string fields in params
+            for (const key in newParams) {
+              if (typeof newParams[key] === 'string') {
+                const fixedValue = fixEncoding(newParams[key]);
+                if (fixedValue !== newParams[key]) {
+                  newParams[key] = fixedValue;
+                  needsUpdate = true;
+                }
+              }
             }
 
             if (needsUpdate) {
@@ -80,21 +103,20 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
             }
           }
           if (updates > 0) {
-            console.log(`Migration successful: Updated ${updates} entries.`);
+            console.log(`Migration successful: Updated ${updates} entries with encoding fixes.`);
           } else {
-             console.log("Migration check complete: No entries needed fixing.");
+             console.log("Migration check complete: No entries needed encoding fixes.");
           }
         });
         
         localStorage.setItem(migrationKey, 'true');
       } catch (e) {
-        console.error("Data migration failed:", e);
-        // Do not set flag if it fails, so it can be re-attempted on next load
+        console.error("Data migration for encoding fixes failed:", e);
       }
     };
 
     runMigration();
-  }, []); // Empty dependency array ensures it runs only on mount
+  }, []);
 
   const creations = useLiveQuery(
     () => db.creations.orderBy('createdAt').reverse().toArray(),
