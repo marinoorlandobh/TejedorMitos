@@ -34,7 +34,17 @@ export default function ImportCsvPage() {
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
+                encoding: "UTF-8", // Force UTF-8 encoding to correctly handle special characters like tildes.
                 complete: (results) => {
+                    // Check for parsing errors which might indicate wrong encoding
+                    if (results.errors.length > 0) {
+                        console.error("Parsing errors:", results.errors);
+                        toast({ variant: "destructive", title: "Error de Análisis", description: "Hubo un problema al leer el archivo. Asegúrate de que esté guardado con codificación UTF-8." });
+                        setIsLoading(false);
+                        setCsvFileName(null);
+                        return;
+                    }
+
                     const headers = results.meta.fields || [];
                     if (headers.length === 0 || !results.data.length) {
                         toast({ variant: "destructive", title: "Archivo CSV vacío o inválido", description: "El archivo no contiene encabezados o filas de datos." });
@@ -48,7 +58,7 @@ export default function ImportCsvPage() {
                 },
                 error: (error: any) => {
                     console.error("Error parsing CSV:", error);
-                    toast({ variant: "destructive", title: "Error de Análisis", description: "No se pudo procesar el archivo CSV." });
+                    toast({ variant: "destructive", title: "Error de Análisis", description: "No se pudo procesar el archivo CSV. Intenta guardándolo con codificación UTF-8." });
                     setIsLoading(false);
                     setCsvFileName(null);
                 }
@@ -134,7 +144,9 @@ export default function ImportCsvPage() {
                         <CardHeader>
                             <CardTitle>1. Subir Archivo CSV</CardTitle>
                             <CardDescription>
-                                El archivo debe contener una columna de encabezado llamada `details` para los prompts. Opcionalmente, incluye una columna `culture`.
+                                El archivo debe contener una columna `details` y opcionalmente `culture`.
+                                <br />
+                                <strong className="text-foreground/90">Importante:</strong> Al guardar desde Excel, elige "Guardar como" y selecciona el formato <strong>"CSV UTF-8 (delimitado por comas)"</strong> para que las tildes se procesen correctamente.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
