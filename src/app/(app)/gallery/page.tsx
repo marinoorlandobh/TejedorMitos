@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -30,6 +31,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLa
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { CreateFromPromptDialog } from '@/components/CreateFromPromptDialog';
+import { MYTHOLOGICAL_CULTURES } from '@/lib/types';
+import { Label } from '@/components/ui/label';
 
 
 interface CreationFull extends Creation {
@@ -53,13 +56,15 @@ const ITEMS_PER_PAGE_OPTIONS = [2, 4, 6, 8, 10, 20, 50, 100, 200, 300, 400, 500,
 const NUM_COLUMNS_OPTIONS = [2, 3, 4, 5, 6];
 
 export default function GalleryPage() {
-  const { creations, getImageData, getTextOutput, deleteCreation, updateCreationName, loading: historyLoading } = useHistory();
+  const { creations, getImageData, getTextOutput, deleteCreation, updateCreationName, updateCreationParams, loading: historyLoading } = useHistory();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'createdAtDesc' | 'createdAtAsc' | 'nameAsc' | 'nameDesc'>('createdAtDesc');
   const [selectedCreation, setSelectedCreation] = useState<CreationFull | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState('');
+  const [isEditingParams, setIsEditingParams] = useState(false);
+  const [editedParams, setEditedParams] = useState<Creation['params'] | null>(null);
   const { toast } = useToast();
   const [copyingId, setCopyingId] = useState<string | null>(null);
   const [usingPromptId, setUsingPromptId] = useState<string | null>(null);
@@ -116,6 +121,8 @@ export default function GalleryPage() {
     }
     setSelectedCreation({ ...creation, imageData, textOutput, originalImageData });
     setIsDetailModalOpen(true);
+    setIsEditingName(false);
+    setIsEditingParams(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -123,10 +130,33 @@ export default function GalleryPage() {
     toast({ title: "Creación Eliminada", description: "El elemento ha sido eliminado de tu galería." });
   };
 
-  const handleEditName = (creation: CreationFull) => {
-    setNewName(creation.name);
+  const handleEditName = () => {
+    if (!selectedCreation) return;
+    setNewName(selectedCreation.name);
     setIsEditingName(true);
   };
+  
+  const handleEditParams = () => {
+    if (!selectedCreation) return;
+    setEditedParams(JSON.parse(JSON.stringify(selectedCreation.params))); // Deep copy
+    setIsEditingParams(true);
+  };
+  
+  const handleCancelEditParams = () => {
+    setIsEditingParams(false);
+    setEditedParams(null);
+  };
+
+  const handleSaveParams = async () => {
+    if (selectedCreation && editedParams) {
+        await updateCreationParams(selectedCreation.id, editedParams);
+        setSelectedCreation(prev => prev ? { ...prev, params: editedParams, updatedAt: Date.now() } : null);
+        setIsEditingParams(false);
+        setEditedParams(null);
+        toast({ title: "Parámetros Actualizados", description: "La información de la creación ha sido cambiada." });
+    }
+  };
+
 
   const handleSaveName = async () => {
     if (selectedCreation && newName.trim() !== '') {
@@ -193,30 +223,6 @@ export default function GalleryPage() {
     } finally {
       setUsingPromptId(null);
     }
-  };
-
-
-  const renderParams = (params: Creation['params'], type: Creation['type']) => {
-    const p = params as any; // To simplify access
-    return (
-      <div className="space-y-1 text-xs text-muted-foreground">
-        {type === 'generated' && <>
-          <p><strong>Cultura:</strong> {p.culture}</p>
-          <p><strong>Entidad:</strong> {p.entity}</p>
-          <p><strong>Estilo:</strong> {p.style}</p>
-        </>}
-        {type === 'analyzed' && <>
-          <p><strong>Contexto:</strong> {p.mythologicalContext}</p>
-          <p><strong>Entidad/Tema:</strong> {p.entityTheme}</p>
-        </>}
-        {type === 'reimagined' && <>
-          <p><strong>Contexto Original:</strong> {p.contextCulture} - {p.contextEntity}</p>
-          <p><strong>Nuevo Estilo:</strong> {p.visualStyle}</p>
-        </>}
-         <p><strong>Calidad:</strong> {p.imageQuality || 'N/D'}</p>
-         <p><strong>Relación de Aspecto:</strong> {p.aspectRatio || 'N/D'}</p>
-      </div>
-    );
   };
 
   if (historyLoading && creations.length === 0) {
@@ -464,7 +470,7 @@ export default function GalleryPage() {
                 ) : (
                   <DialogTitle className="text-3xl flex items-center">
                     {selectedCreation.name}
-                    <Button variant="ghost" size="icon" onClick={() => handleEditName(selectedCreation)} className="ml-2">
+                    <Button variant="ghost" size="icon" onClick={() => handleEditName()} className="ml-2">
                       <Edit3 className="h-5 w-5" />
                     </Button>
                   </DialogTitle>
@@ -490,8 +496,85 @@ export default function GalleryPage() {
                   )}
                 </div>
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-lg text-primary">Parámetros</h3>
-                  <div className="bg-muted p-3 rounded-md">{renderParams(selectedCreation.params, selectedCreation.type)}</div>
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-lg text-primary">Parámetros</h3>
+                    {!isEditingParams && (
+                      <Button variant="ghost" size="icon" onClick={handleEditParams}>
+                        <Edit3 className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {isEditingParams && editedParams ? (
+                    <div className="bg-muted p-3 rounded-md space-y-4">
+                      {(() => {
+                        const p = editedParams as any;
+                        const type = selectedCreation!.type;
+                        const cultureKey = type === 'analyzed' ? 'mythologicalContext' : type === 'reimagined' ? 'contextCulture' : 'culture';
+                        const cultureValue = p[cultureKey];
+
+                        const handleCultureChange = (newValue: string) => {
+                          setEditedParams(prev => {
+                            if (!prev) return null;
+                            const newParams = { ...prev };
+                            (newParams as any)[cultureKey] = newValue;
+                            return newParams;
+                          });
+                        };
+
+                        return (
+                          <div className="space-y-2">
+                            <Label htmlFor="culture-select" className="text-sm font-medium text-foreground">
+                              {type === 'generated' ? 'Cultura' : type === 'reimagined' ? 'Cultura del Contexto' : 'Contexto Mitológico'}
+                            </Label>
+                            <Select value={cultureValue} onValueChange={handleCultureChange}>
+                              <SelectTrigger id="culture-select" className="bg-background">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {MYTHOLOGICAL_CULTURES.map(c => (
+                                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })()}
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="sm" onClick={handleCancelEditParams}>Cancelar</Button>
+                        <Button size="sm" onClick={handleSaveParams}>Guardar</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-muted p-3 rounded-md">
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        {selectedCreation.type === 'generated' && (() => {
+                          const p = selectedCreation.params as GeneratedParams;
+                          return <>
+                            <p><strong>Cultura:</strong> {p.culture}</p>
+                            <p><strong>Entidad:</strong> {p.entity}</p>
+                            <p><strong>Estilo:</strong> {p.style}</p>
+                          </>;
+                        })()}
+                        {selectedCreation.type === 'analyzed' && (() => {
+                          const p = selectedCreation.params as AnalyzedParams;
+                          return <>
+                            <p><strong>Contexto:</strong> {p.mythologicalContext}</p>
+                            <p><strong>Entidad/Tema:</strong> {p.entityTheme}</p>
+                          </>;
+                        })()}
+                        {selectedCreation.type === 'reimagined' && (() => {
+                          const p = selectedCreation.params as ReimaginedParams;
+                          return <>
+                            <p><strong>Contexto Original:</strong> {p.contextCulture} - {p.contextEntity}</p>
+                            <p><strong>Nuevo Estilo:</strong> {p.visualStyle}</p>
+                          </>;
+                        })()}
+                        <p><strong>Calidad:</strong> {(selectedCreation.params as any).imageQuality || 'N/D'}</p>
+                        <p><strong>Relación de Aspecto:</strong> {(selectedCreation.params as any).aspectRatio || 'N/D'}</p>
+                      </div>
+                    </div>
+                  )}
 
                   {selectedCreation.textOutput && (
                     <>

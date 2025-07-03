@@ -18,6 +18,7 @@ interface HistoryContextType {
     originalImageDataUri?: string // For original image in analyzed/reimagined
   ) => Promise<string | undefined>;
   updateCreationName: (id: string, newName: string) => Promise<void>;
+  updateCreationParams: (id: string, newParams: Creation['params']) => Promise<void>;
   deleteCreation: (id: string) => Promise<void>;
   getCreationById: (id: string) => Promise<Creation | undefined>;
   getImageData: (id: string) => Promise<ImageDataModel | undefined>;
@@ -195,6 +196,19 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const updateCreationParams = async (id: string, newParams: Creation['params']) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await db.creations.update(id, { params: newParams, updatedAt: Date.now() });
+      setLoading(false);
+    } catch (e: any) {
+      console.error("Failed to update creation params:", e);
+      setError(e.message || "Failed to update params.");
+      setLoading(false);
+    }
+  };
+
   const deleteCreation = async (id: string) => {
     setLoading(true);
     setError(null);
@@ -301,7 +315,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   return (
-    <HistoryContext.Provider value={{ creations, addCreation, updateCreationName, deleteCreation, getCreationById, getImageData, getTextOutput, exportData, importData, clearAllData, loading, error }}>
+    <HistoryContext.Provider value={{ creations, addCreation, updateCreationName, updateCreationParams, deleteCreation, getCreationById, getImageData, getTextOutput, exportData, importData, clearAllData, loading, error }}>
       {children}
     </HistoryContext.Provider>
   );
