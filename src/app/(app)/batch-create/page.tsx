@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Layers, Loader2, Sparkles, CheckCircle, XCircle } from 'lucide-react';
+import { Layers, Loader2, Sparkles, CheckCircle, XCircle, RefreshCw, Edit3 } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -39,11 +39,14 @@ interface ResultState {
 }
 
 export default function BatchCreatePage() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [results, setResults] = useState<ResultState[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const { addCreation } = useHistory();
   const { toast } = useToast();
+
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editedPromptText, setEditedPromptText] = useState('');
 
   const form = useForm<BatchCreateFormData>({
     resolver: zodResolver(batchCreateSchema),
@@ -56,58 +59,74 @@ export default function BatchCreatePage() {
     },
   });
 
+  const processSinglePrompt = async (promptToProcess: string, index: number, settings: BatchCreateFormData) => {
+    setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined, prompt: promptToProcess } : r));
+
+    try {
+        const { creationName, entity } = await extractDetailsFromPromptAction({ promptText: promptToProcess });
+        const aiInputParams: GeneratedParams = {
+            culture: settings.culture,
+            entity: entity,
+            details: promptToProcess,
+            style: settings.style,
+            aspectRatio: settings.aspectRatio,
+            imageQuality: settings.imageQuality,
+        };
+        const imageResult = await generateMythImageAction(aiInputParams);
+        await addCreation('generated', creationName, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
+        setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageUrl: imageResult.imageUrl, name: creationName } : r));
+        return true;
+    } catch (error: any) {
+        console.error(`Error processing prompt: ${promptToProcess}`, error);
+        const errorMessage = error.message || "Error desconocido";
+        setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: errorMessage } : r));
+        return false;
+    }
+  };
+  
   async function onSubmit(data: BatchCreateFormData) {
-    setIsLoading(true);
+    setIsProcessingBatch(true);
     const promptList = data.prompts.split('\n').filter(p => p.trim() !== '');
     if (promptList.length === 0) {
         toast({ variant: "destructive", title: "Error", description: "Por favor, introduce al menos un prompt." });
-        setIsLoading(false);
+        setIsProcessingBatch(false);
         return;
     }
 
     setResults(promptList.map(p => ({ prompt: p, status: 'pending' })));
     setProgress({ current: 0, total: promptList.length });
 
-    for (let i = 0; i < promptList.length; i++) {
-        const currentPrompt = promptList[i];
-        setProgress({ current: i + 1, total: promptList.length });
-        setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'processing' } : r));
-
-        try {
-            const { creationName, entity } = await extractDetailsFromPromptAction({ promptText: currentPrompt });
-
-            const aiInputParams: GeneratedParams = {
-                culture: data.culture,
-                entity: entity,
-                details: currentPrompt,
-                style: data.style,
-                aspectRatio: data.aspectRatio,
-                imageQuality: data.imageQuality,
-            };
-
-            const imageResult = await generateMythImageAction(aiInputParams);
-            
-            await addCreation(
-                'generated',
-                creationName,
-                aiInputParams,
-                { prompt: imageResult.prompt },
-                imageResult.imageUrl
-            );
-
-            setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'success', imageUrl: imageResult.imageUrl, name: creationName } : r));
-            toast({ title: `Éxito: "${creationName}"`, description: "La imagen ha sido generada y guardada." });
-
-        } catch (error: any) {
-            console.error(`Error processing prompt: ${currentPrompt}`, error);
-            const errorMessage = error.message || "Error desconocido";
-            setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: errorMessage } : r));
-            toast({ variant: "destructive", title: `Error en prompt ${i + 1}`, description: errorMessage });
-        }
+    for (const [index, prompt] of promptList.entries()) {
+        await processSinglePrompt(prompt, index, data);
+        setProgress(prev => ({ ...prev, current: index + 1 }));
     }
 
-    setIsLoading(false);
+    setIsProcessingBatch(false);
+    toast({ title: "Proceso en Lote Terminado", description: "Revisa los resultados en la lista." });
   }
+
+  const handleRetry = (index: number) => {
+    const promptToRetry = results[index].prompt;
+    processSinglePrompt(promptToRetry, index, form.getValues());
+  };
+
+  const handleEdit = (index: number) => {
+    setEditingIndex(index);
+    setEditedPromptText(results[index].prompt);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setEditedPromptText('');
+  };
+
+  const handleSaveAndRetry = () => {
+    if (editingIndex !== null) {
+      processSinglePrompt(editedPromptText, editingIndex, form.getValues());
+      handleCancelEdit();
+    }
+  };
+
 
   return (
     <ScrollArea className="h-full">
@@ -202,9 +221,9 @@ export default function BatchCreatePage() {
                       )}
                     />
                   </div>
-                  <Button type="submit" disabled={isLoading} className="w-full">
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                    {isLoading ? `Generando ${progress.current} de ${progress.total}...` : 'Generar Lote'}
+                  <Button type="submit" disabled={isProcessingBatch} className="w-full">
+                    {isProcessingBatch ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    {isProcessingBatch ? `Generando ${progress.current} de ${progress.total}...` : 'Generar Lote'}
                   </Button>
                 </form>
               </Form>
@@ -226,7 +245,8 @@ export default function BatchCreatePage() {
                     )}
                     <div className="space-y-4">
                         {results.map((result, index) => (
-                            <div key={index} className="flex items-start gap-4 p-3 bg-muted/50 rounded-lg">
+                          <div key={index} className="flex flex-col gap-2 p-3 bg-muted/50 rounded-lg">
+                            <div className="flex items-start gap-4">
                                 <div className="flex-shrink-0 pt-1">
                                     {result.status === 'processing' && <Loader2 className="h-5 w-5 text-primary animate-spin" />}
                                     {result.status === 'success' && <CheckCircle className="h-5 w-5 text-green-500" />}
@@ -234,15 +254,35 @@ export default function BatchCreatePage() {
                                     {result.status === 'pending' && <div className="h-5 w-5 rounded-full bg-muted-foreground/50" />}
                                 </div>
                                 <div className="flex-1">
-                                    <p className="text-sm font-medium line-clamp-2">{result.prompt}</p>
+                                    {editingIndex === index ? (
+                                      <Textarea
+                                        value={editedPromptText}
+                                        onChange={(e) => setEditedPromptText(e.target.value)}
+                                        className="mb-2 bg-background"
+                                        rows={4}
+                                      />
+                                    ) : (
+                                      <p className="text-sm font-medium line-clamp-3">{result.prompt}</p>
+                                    )}
                                     {result.status === 'success' && result.name && <p className="text-xs text-primary font-semibold">Generado: {result.name}</p>}
                                     {result.status === 'error' && result.error && <p className="text-xs text-destructive">{result.error}</p>}
-                                ...
                                 </div>
                                 {result.status === 'success' && result.imageUrl && (
                                     <Image src={result.imageUrl} alt={`Generated: ${result.name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />
                                 )}
                             </div>
+                            {editingIndex === index ? (
+                              <div className="flex justify-end gap-2">
+                                <Button size="sm" variant="ghost" onClick={handleCancelEdit}>Cancelar</Button>
+                                <Button size="sm" onClick={handleSaveAndRetry}><Sparkles className="mr-2 h-4 w-4" /> Guardar y Reintentar</Button>
+                              </div>
+                            ) : result.status === 'error' && (
+                              <div className="flex justify-end gap-2">
+                                <Button size="sm" variant="outline" onClick={() => handleEdit(index)}><Edit3 className="mr-2 h-4 w-4" /> Editar</Button>
+                                <Button size="sm" onClick={() => handleRetry(index)}><RefreshCw className="mr-2 h-4 w-4" /> Reintentar</Button>
+                              </div>
+                            )}
+                          </div>
                         ))}
                     </div>
                 </ScrollArea>
