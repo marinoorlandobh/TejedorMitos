@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Layers, Loader2, Sparkles, CheckCircle, XCircle, RefreshCw, Edit3 } from 'lucide-react';
+import { Layers, Loader2, Sparkles, CheckCircle, XCircle, RefreshCw, Edit3, Bot } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { generateMythImageAction, extractDetailsFromPromptAction } from '@/lib/actions';
+import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -47,6 +47,7 @@ export default function BatchCreatePage() {
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editedPromptText, setEditedPromptText] = useState('');
+  const [isFixingIndex, setIsFixingIndex] = useState<number | null>(null);
 
   const form = useForm<BatchCreateFormData>({
     resolver: zodResolver(batchCreateSchema),
@@ -124,6 +125,26 @@ export default function BatchCreatePage() {
     if (editingIndex !== null) {
       processSinglePrompt(editedPromptText, editingIndex, form.getValues());
       handleCancelEdit();
+    }
+  };
+
+  const handleAiFixAndRetry = async (index: number) => {
+    setIsFixingIndex(index);
+    const originalPrompt = results[index].prompt;
+
+    try {
+      toast({ title: "La IA está trabajando...", description: "Revisando y corrigiendo el prompt." });
+      const { fixedPrompt } = await fixImagePromptAction({ promptText: originalPrompt });
+      toast({ title: "¡Prompt Corregido!", description: "Reintentando la generación con el nuevo prompt." });
+      
+      await processSinglePrompt(fixedPrompt, index, form.getValues());
+
+    } catch (error: any) {
+        console.error("Error fixing prompt with AI:", error);
+        toast({ variant: "destructive", title: "Error de la IA", description: error.message || "No se pudo corregir el prompt." });
+        setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: "Falló la corrección con IA." } : r));
+    } finally {
+      setIsFixingIndex(null);
     }
   };
 
@@ -278,8 +299,12 @@ export default function BatchCreatePage() {
                               </div>
                             ) : result.status === 'error' && (
                               <div className="flex justify-end gap-2">
-                                <Button size="sm" variant="outline" onClick={() => handleEdit(index)}><Edit3 className="mr-2 h-4 w-4" /> Editar</Button>
-                                <Button size="sm" onClick={() => handleRetry(index)}><RefreshCw className="mr-2 h-4 w-4" /> Reintentar</Button>
+                                <Button size="sm" variant="outline" onClick={() => handleAiFixAndRetry(index)} disabled={isFixingIndex === index}>
+                                  {isFixingIndex === index ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                                   Corregir con IA
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => handleEdit(index)} disabled={isFixingIndex === index}><Edit3 className="mr-2 h-4 w-4" /> Editar</Button>
+                                <Button size="sm" onClick={() => handleRetry(index)} disabled={isFixingIndex === index}><RefreshCw className="mr-2 h-4 w-4" /> Reintentar</Button>
                               </div>
                             )}
                           </div>

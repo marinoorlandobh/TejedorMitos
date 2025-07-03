@@ -7,6 +7,8 @@ import { analyzeUploadedImage as analyzeUploadedImageFlow, type AnalyzeUploadedI
 import { reimagineUploadedImage as reimagineUploadedImageFlow, type ReimagineUploadedImageInput, type ReimagineUploadedImageOutput } from "@/ai/flows/reimagine-uploaded-image";
 import { extractMythologiesFromText as extractMythologiesFlow, type ExtractMythologiesInput, type ExtractMythologiesOutput } from "@/ai/flows/extract-mythologies-flow";
 import { extractDetailsFromPrompt as extractDetailsFromPromptFlow, type ExtractDetailsInput, type ExtractDetailsOutput } from "@/ai/flows/extract-details-from-prompt";
+import { fixImagePrompt as fixImagePromptFlow, type FixImagePromptInput, type FixImagePromptOutput } from "@/ai/flows/fix-image-prompt";
+
 
 export async function generateMythImageAction(input: GenerateMythImageInput): Promise<GenerateMythImageOutput> {
   try {
@@ -56,5 +58,15 @@ export async function extractDetailsFromPromptAction(input: ExtractDetailsInput)
   } catch (error) {
     console.error("Error in extractDetailsFromPromptAction:", error);
     throw new Error("Failed to extract details from prompt. Please try again.");
+  }
+}
+
+export async function fixImagePromptAction(input: FixImagePromptInput): Promise<FixImagePromptOutput> {
+  try {
+    const result = await fixImagePromptFlow(input);
+    return result;
+  } catch (error) {
+    console.error("Error in fixImagePromptAction:", error);
+    throw new Error("Failed to fix prompt with AI. Please try again.");
   }
 }
