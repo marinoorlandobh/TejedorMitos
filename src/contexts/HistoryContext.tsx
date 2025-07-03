@@ -34,6 +34,68 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // One-time data migration to fix encoding issues
+  useEffect(() => {
+    const runMigration = async () => {
+      const migrationKey = 'data_migration_v2_fix_nordica'; // Use a new key for this specific migration
+      if (localStorage.getItem(migrationKey)) {
+        return; // Migration already done
+      }
+
+      console.log("Running one-time data migration to fix 'Nórdica' encoding...");
+      try {
+        await db.transaction('rw', db.creations, async () => {
+          const creationsToFix = await db.creations.toArray();
+          let updates = 0;
+
+          for (const creation of creationsToFix) {
+            let needsUpdate = false;
+            
+            const newParams = { ...creation.params } as any;
+            const newName = creation.name.replace(/Nrdica/g, 'Nórdica');
+
+            if (newName !== creation.name) {
+              needsUpdate = true;
+            }
+            if (newParams.culture === 'Nrdica') {
+              newParams.culture = 'Nórdica';
+              needsUpdate = true;
+            }
+            if (newParams.mythologicalContext === 'Nrdica') {
+              newParams.mythologicalContext = 'Nórdica';
+              needsUpdate = true;
+            }
+            if (newParams.contextCulture === 'Nrdica') {
+              newParams.contextCulture = 'Nórdica';
+              needsUpdate = true;
+            }
+
+            if (needsUpdate) {
+              await db.creations.update(creation.id, { 
+                name: newName,
+                params: newParams, 
+                updatedAt: Date.now() 
+              });
+              updates++;
+            }
+          }
+          if (updates > 0) {
+            console.log(`Migration successful: Updated ${updates} entries.`);
+          } else {
+             console.log("Migration check complete: No entries needed fixing.");
+          }
+        });
+        
+        localStorage.setItem(migrationKey, 'true');
+      } catch (e) {
+        console.error("Data migration failed:", e);
+        // Do not set flag if it fails, so it can be re-attempted on next load
+      }
+    };
+
+    runMigration();
+  }, []); // Empty dependency array ensures it runs only on mount
+
   const creations = useLiveQuery(
     () => db.creations.orderBy('createdAt').reverse().toArray(),
     [] // dependencies
