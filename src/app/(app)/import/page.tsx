@@ -111,6 +111,28 @@ export default function ImportPdfPage() {
         setIsCreateDialogOpen(true);
     };
 
+    const handleCopyAllPrompts = () => {
+        if (!analysisResult || analysisResult.extractedData.length === 0) return;
+
+        const allPrompts = analysisResult.extractedData
+            .flatMap(mythology => mythology.prompts)
+            .join('\n');
+
+        if (allPrompts) {
+            navigator.clipboard.writeText(allPrompts);
+            toast({
+                title: "¡Prompts Copiados!",
+                description: "Todos los prompts están en tu portapapeles, listos para pegar en Creación en Lote.",
+            });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Sin Prompts",
+                description: "No se encontraron prompts para copiar.",
+            });
+        }
+    };
+
     return (
         <>
             <ScrollArea className="h-full">
@@ -168,8 +190,18 @@ export default function ImportPdfPage() {
 
                         <Card className="shadow-lg flex flex-col">
                             <CardHeader>
-                                <CardTitle>Resultados de la Generación</CardTitle>
-                                <CardDescription>Las mitologías y prompts extraídos por la IA aparecerán aquí.</CardDescription>
+                                <div className="flex justify-between items-start gap-2">
+                                    <div>
+                                        <CardTitle>Resultados de la Generación</CardTitle>
+                                        <CardDescription>Mitologías y prompts extraídos por la IA.</CardDescription>
+                                    </div>
+                                    {analysisResult && analysisResult.extractedData.length > 0 && (
+                                        <Button onClick={handleCopyAllPrompts} variant="outline" size="sm" className="shrink-0">
+                                            <Copy className="mr-2 h-4 w-4" />
+                                            Copiar Todo
+                                        </Button>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent className="flex-grow">
                                 <ScrollArea className="h-full max-h-[400px] pr-3">
