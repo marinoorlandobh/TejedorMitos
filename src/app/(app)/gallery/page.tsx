@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
-import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info } from 'lucide-react';
+import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info, Columns, Rows } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -26,14 +26,30 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+
 
 interface CreationFull extends Creation {
   imageData?: ImageDataModel;
   textOutput?: TextOutputModel;
   originalImageData?: ImageDataModel; // For reimagined items
 }
+
+const getGridColsClass = (cols: number): string => {
+  switch (cols) {
+    case 2: return 'sm:grid-cols-2';
+    case 3: return 'sm:grid-cols-2 lg:grid-cols-3';
+    case 4: return 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+    case 5: return 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
+    case 6: return 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
+    default: return 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+  }
+};
+
+const ITEMS_PER_PAGE_OPTIONS = [2, 4, 6, 8, 10, 20, 50, 100, 200, 300, 400, 500, 1000];
+const NUM_COLUMNS_OPTIONS = [2, 3, 4, 5, 6];
 
 export default function GalleryPage() {
   const { creations, getImageData, getTextOutput, deleteCreation, updateCreationName, loading: historyLoading } = useHistory();
@@ -45,6 +61,10 @@ export default function GalleryPage() {
   const [newName, setNewName] = useState('');
   const { toast } = useToast();
   const [copyingId, setCopyingId] = useState<string | null>(null);
+
+  const [itemsPerPage, setItemsPerPage] = useState(4);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [numColumns, setNumColumns] = useState<number>(4);
 
   const filteredAndSortedCreations = useMemo(() => {
     let filtered = creations.filter(creation =>
@@ -72,6 +92,16 @@ export default function GalleryPage() {
     }
     return filtered;
   }, [creations, searchTerm, sortBy]);
+
+  const totalPages = Math.ceil(filteredAndSortedCreations.length / itemsPerPage);
+  const paginatedCreations = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedCreations.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAndSortedCreations, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortBy, itemsPerPage]);
 
   const handleViewDetails = async (creation: Creation) => {
     let imageData, textOutput, originalImageData;
@@ -179,7 +209,7 @@ export default function GalleryPage() {
           </p>
         </header>
 
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="mb-6 flex flex-col sm:flex-row flex-wrap gap-4">
           <div className="relative flex-grow">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
@@ -199,6 +229,24 @@ export default function GalleryPage() {
               <SelectItem value="createdAtAsc">Fecha (Más antiguos)</SelectItem>
               <SelectItem value="nameAsc">Nombre (A-Z)</SelectItem>
               <SelectItem value="nameDesc">Nombre (Z-A)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value))}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Items por página" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectLabel>Imágenes por página</SelectLabel>
+              {ITEMS_PER_PAGE_OPTIONS.map(v => <SelectItem key={v} value={String(v)}>{v}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={String(numColumns)} onValueChange={(value) => setNumColumns(Number(value))}>
+            <SelectTrigger className="w-full sm:w-[150px]">
+              <SelectValue placeholder="Columnas" />
+            </SelectTrigger>
+            <SelectContent>
+               <SelectLabel>Número de columnas</SelectLabel>
+               {NUM_COLUMNS_OPTIONS.map(v => <SelectItem key={v} value={String(v)}>{v} Columnas</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -221,104 +269,127 @@ export default function GalleryPage() {
             </CardFooter>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredAndSortedCreations.map((creation) => (
-              <Card key={creation.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg leading-tight line-clamp-2 hover:text-primary transition-colors">{creation.name}</CardTitle>
-                    <Badge variant={
-                      creation.type === 'generated' ? 'default' :
-                      creation.type === 'analyzed' ? 'secondary' : 'outline'
-                    } className="capitalize shrink-0 ml-2">
-                      {creation.type === 'generated' ? 'generado' : creation.type === 'analyzed' ? 'analizado' : 'reimaginado'}
-                    </Badge>
-                  </div>
-                  <CardDescription className="text-xs">
-                    {(() => {
-                      const p = creation.params as any;
-                      const culture = p.culture || p.mythologicalContext || p.contextCulture;
-                      const timeAgo = formatDistanceToNow(new Date(creation.createdAt), { addSuffix: true, locale: es });
-                      if (culture) {
-                        return (
-                          <span className="truncate">
-                            <span className="font-semibold">{culture}</span>
-                            <span className="text-muted-foreground/80"> • {timeAgo}</span>
-                          </span>
-                        );
-                      }
-                      return timeAgo;
-                    })()}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="relative flex-grow flex items-center justify-center p-0 aspect-square bg-muted/30">
-                  {creation.imageId ? (
-                    <ImageItem imageId={creation.imageId} alt={creation.name} />
-                  ) : (
-                    <div className="p-4 text-center text-sm text-muted-foreground">Sin vista previa de imagen.</div>
-                  )}
-                </CardContent>
-                <CardFooter className="pt-4 flex justify-between items-center">
-                  <Button variant="outline" size="sm" onClick={() => handleViewDetails(creation)}>
-                    <ExternalLink className="mr-2 h-4 w-4" /> Ver
-                  </Button>
-                  <div className="flex items-center gap-1">
-                    {['generated', 'reimagined'].includes(creation.type) && creation.outputId && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleCopyPrompt(creation)}
-                            disabled={copyingId === creation.id}
-                            className="text-muted-foreground hover:text-foreground"
-                          >
-                            {copyingId === creation.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Copiar Prompt</p>
-                        </TooltipContent>
-                      </Tooltip>
+          <>
+            <div className={cn("grid grid-cols-1 gap-6", getGridColsClass(numColumns))}>
+              {paginatedCreations.map((creation) => (
+                <Card key={creation.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg leading-tight line-clamp-2 hover:text-primary transition-colors">{creation.name}</CardTitle>
+                      <Badge variant={
+                        creation.type === 'generated' ? 'default' :
+                        creation.type === 'analyzed' ? 'secondary' : 'outline'
+                      } className="capitalize shrink-0 ml-2">
+                        {creation.type === 'generated' ? 'generado' : creation.type === 'analyzed' ? 'analizado' : 'reimaginado'}
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-xs">
+                      {(() => {
+                        const p = creation.params as any;
+                        const culture = p.culture || p.mythologicalContext || p.contextCulture;
+                        const timeAgo = formatDistanceToNow(new Date(creation.createdAt), { addSuffix: true, locale: es });
+                        if (culture) {
+                          return (
+                            <span className="truncate">
+                              <span className="font-semibold">{culture}</span>
+                              <span className="text-muted-foreground/80"> • {timeAgo}</span>
+                            </span>
+                          );
+                        }
+                        return timeAgo;
+                      })()}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="relative flex-grow flex items-center justify-center p-0 aspect-square bg-muted/30">
+                    {creation.imageId ? (
+                      <ImageItem imageId={creation.imageId} alt={creation.name} />
+                    ) : (
+                      <div className="p-4 text-center text-sm text-muted-foreground">Sin vista previa de imagen.</div>
                     )}
-
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                  </CardContent>
+                  <CardFooter className="pt-4 flex justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => handleViewDetails(creation)}>
+                      <ExternalLink className="mr-2 h-4 w-4" /> Ver
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {['generated', 'reimagined'].includes(creation.type) && creation.outputId && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10">
-                              <Trash2 className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleCopyPrompt(creation)}
+                              disabled={copyingId === creation.id}
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              {copyingId === creation.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Copy className="h-4 w-4" />
+                              )}
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Eliminar</p>
+                            <p>Copiar Prompt</p>
                           </TooltipContent>
                         </Tooltip>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta acción no se puede deshacer. Esto eliminará permanentemente "{creation.name}".
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(creation.id)} className="bg-destructive hover:bg-destructive/90">
-                            Eliminar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
+                      )}
+
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Eliminar</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta acción no se puede deshacer. Esto eliminará permanentemente "{creation.name}".
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(creation.id)} className="bg-destructive hover:bg-destructive/90">
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-8 flex items-center justify-center gap-4">
+                  <Button
+                      onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                      disabled={currentPage === 1}
+                      variant="outline"
+                  >
+                      Anterior
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                      Página {currentPage} de {totalPages}
+                  </span>
+                  <Button
+                      onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      variant="outline"
+                  >
+                      Siguiente
+                  </Button>
+              </div>
+            )}
+          </>
         )}
 
         {selectedCreation && (
