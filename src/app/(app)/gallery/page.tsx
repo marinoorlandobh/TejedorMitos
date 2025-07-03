@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
-import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info, Columns, Rows } from 'lucide-react';
+import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info, Columns, Rows, Wand2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLabel, SelectGroup } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { CreateFromPromptDialog } from '@/components/CreateFromPromptDialog';
 
 
 interface CreationFull extends Creation {
@@ -61,6 +62,9 @@ export default function GalleryPage() {
   const [newName, setNewName] = useState('');
   const { toast } = useToast();
   const [copyingId, setCopyingId] = useState<string | null>(null);
+  const [usingPromptId, setUsingPromptId] = useState<string | null>(null);
+  const [promptToCreateFrom, setPromptToCreateFrom] = useState<string | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const [itemsPerPage, setItemsPerPage] = useState(4);
   const [currentPage, setCurrentPage] = useState(1);
@@ -163,6 +167,34 @@ export default function GalleryPage() {
       setCopyingId(null);
     }
   };
+
+  const handleUsePrompt = async (creation: Creation) => {
+    if (!creation.outputId) {
+      toast({ variant: "destructive", title: "Error", description: "No se encontró un ID de salida para esta creación." });
+      return;
+    }
+    setUsingPromptId(creation.id);
+    try {
+      const textOutput = await getTextOutput(creation.outputId);
+      if (textOutput) {
+        const prompt = (textOutput.data as any).prompt || (textOutput.data as any).derivedPrompt;
+        if (prompt) {
+          setPromptToCreateFrom(prompt);
+          setIsCreateDialogOpen(true);
+        } else {
+          toast({ variant: "destructive", title: "Error", description: "No se encontró un prompt para usar." });
+        }
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo obtener la información del prompt." });
+      }
+    } catch (e) {
+      console.error("Error using prompt from gallery:", e);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo usar el prompt." });
+    } finally {
+      setUsingPromptId(null);
+    }
+  };
+
 
   const renderParams = (params: Creation['params'], type: Creation['type']) => {
     const p = params as any; // To simplify access
@@ -312,38 +344,60 @@ export default function GalleryPage() {
                     )}
                   </CardContent>
                   <CardFooter className="pt-4 flex justify-between items-center">
-                    <Button variant="outline" size="sm" onClick={() => handleViewDetails(creation)}>
+                    <Button variant="outline" size="sm" onClick={() => handleViewDetails(creation)} disabled={copyingId === creation.id || usingPromptId === creation.id}>
                       <ExternalLink className="mr-2 h-4 w-4" /> Ver
                     </Button>
                     <div className="flex items-center gap-1">
                       {['generated', 'reimagined'].includes(creation.type) && creation.outputId && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleCopyPrompt(creation)}
-                              disabled={copyingId === creation.id}
-                              className="text-muted-foreground hover:text-foreground"
-                            >
-                              {copyingId === creation.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Copy className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Copiar Prompt</p>
-                          </TooltipContent>
-                        </Tooltip>
+                        <>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleUsePrompt(creation)}
+                                disabled={copyingId === creation.id || usingPromptId === creation.id}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                {usingPromptId === creation.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Wand2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Crear desde Prompt</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleCopyPrompt(creation)}
+                                disabled={copyingId === creation.id || usingPromptId === creation.id}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                {copyingId === creation.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Copiar Prompt</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </>
                       )}
 
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10">
+                              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" disabled={copyingId === creation.id || usingPromptId === creation.id}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
@@ -489,6 +543,14 @@ export default function GalleryPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        )}
+        
+        {promptToCreateFrom && (
+            <CreateFromPromptDialog
+                open={isCreateDialogOpen}
+                onOpenChange={setIsCreateDialogOpen}
+                prompt={promptToCreateFrom}
+            />
         )}
       </div>
     </ScrollArea>
