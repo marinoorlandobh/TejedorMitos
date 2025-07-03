@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDescriptionComponent } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
 import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction } from '@/lib/actions';
@@ -60,13 +60,13 @@ export default function BatchCreatePage() {
     },
   });
 
-  const processSinglePrompt = async (promptToProcess: string, index: number, settings: BatchCreateFormData) => {
+  const processSinglePrompt = async (promptToProcess: string, cultureForPrompt: string, index: number, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
     setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined, prompt: promptToProcess } : r));
 
     try {
         const { creationName, entity } = await extractDetailsFromPromptAction({ promptText: promptToProcess });
         const aiInputParams: GeneratedParams = {
-            culture: settings.culture,
+            culture: cultureForPrompt,
             entity: entity,
             details: promptToProcess,
             style: settings.style,
@@ -85,20 +85,38 @@ export default function BatchCreatePage() {
     }
   };
   
+  const getTaskForLine = (line: string, defaultCulture: string) => {
+    let culture = defaultCulture;
+    let prompt = line.trim();
+    if (prompt.includes(';')) {
+        const parts = prompt.split(';');
+        const potentialCulture = parts[0].trim();
+        if (potentialCulture) {
+            culture = potentialCulture;
+            prompt = parts.slice(1).join(';').trim();
+        }
+    }
+    return { prompt, culture };
+  };
+
   async function onSubmit(data: BatchCreateFormData) {
     setIsProcessingBatch(true);
-    const promptList = data.prompts.split('\n').filter(p => p.trim() !== '');
-    if (promptList.length === 0) {
+    const promptLines = data.prompts.split('\n').filter(p => p.trim() !== '');
+    if (promptLines.length === 0) {
         toast({ variant: "destructive", title: "Error", description: "Por favor, introduce al menos un prompt." });
         setIsProcessingBatch(false);
         return;
     }
 
-    setResults(promptList.map(p => ({ prompt: p, status: 'pending' })));
-    setProgress({ current: 0, total: promptList.length });
+    const tasks = promptLines.map(line => getTaskForLine(line, data.culture));
 
-    for (const [index, prompt] of promptList.entries()) {
-        await processSinglePrompt(prompt, index, data);
+    setResults(tasks.map(t => ({ prompt: t.prompt, status: 'pending' })));
+    setProgress({ current: 0, total: tasks.length });
+    
+    const { prompts, culture: defaultCulture, ...restOfSettings } = data;
+
+    for (const [index, task] of tasks.entries()) {
+        await processSinglePrompt(task.prompt, task.culture, index, restOfSettings);
         setProgress(prev => ({ ...prev, current: index + 1 }));
     }
 
@@ -106,14 +124,27 @@ export default function BatchCreatePage() {
     toast({ title: "Proceso en Lote Terminado", description: "Revisa los resultados en la lista." });
   }
 
+  const getTaskForIndex = (index: number) => {
+    const allLines = form.getValues().prompts.split('\n').filter(p => p.trim() !== '');
+    const line = allLines[index];
+    if (!line) return null;
+    return getTaskForLine(line, form.getValues().culture);
+  }
+
   const handleRetry = (index: number) => {
-    const promptToRetry = results[index].prompt;
-    processSinglePrompt(promptToRetry, index, form.getValues());
+    const task = getTaskForIndex(index);
+    if (task) {
+      const { prompt, culture } = task;
+      const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
+      processSinglePrompt(prompt, culture, index, restOfSettings);
+    }
   };
 
   const handleEdit = (index: number) => {
     setEditingIndex(index);
-    setEditedPromptText(results[index].prompt);
+    const allLines = form.getValues().prompts.split('\n').filter(p => p.trim() !== '');
+    const line = allLines[index] || results[index].prompt;
+    setEditedPromptText(line);
   };
 
   const handleCancelEdit = () => {
@@ -123,21 +154,29 @@ export default function BatchCreatePage() {
 
   const handleSaveAndRetry = () => {
     if (editingIndex !== null) {
-      processSinglePrompt(editedPromptText, editingIndex, form.getValues());
+      const task = getTaskForLine(editedPromptText, form.getValues().culture);
+      const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
+      processSinglePrompt(task.prompt, task.culture, editingIndex, restOfSettings);
       handleCancelEdit();
     }
   };
 
   const handleAiFixAndRetry = async (index: number) => {
     setIsFixingIndex(index);
-    const originalPrompt = results[index].prompt;
+    const task = getTaskForIndex(index);
+    if (!task) {
+        setIsFixingIndex(null);
+        return;
+    }
+    const { prompt: originalPrompt, culture } = task;
 
     try {
       toast({ title: "La IA está trabajando...", description: "Revisando y corrigiendo el prompt." });
       const { fixedPrompt } = await fixImagePromptAction({ promptText: originalPrompt });
       toast({ title: "¡Prompt Corregido!", description: "Reintentando la generación con el nuevo prompt." });
       
-      await processSinglePrompt(fixedPrompt, index, form.getValues());
+      const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
+      await processSinglePrompt(fixedPrompt, culture, index, restOfSettings);
 
     } catch (error: any) {
         console.error("Error fixing prompt with AI:", error);
@@ -180,6 +219,9 @@ export default function BatchCreatePage() {
                         <FormControl>
                           <Textarea placeholder="Pega tus prompts aquí, uno por línea..." {...field} rows={8} />
                         </FormControl>
+                         <FormDescriptionComponent>
+                            Usa el formato `cultura;prompt` para especificar una cultura diferente por línea.
+                          </FormDescriptionComponent>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -189,7 +231,7 @@ export default function BatchCreatePage() {
                     name="culture"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Cultura Mitológica (para todos)</FormLabel>
+                        <FormLabel>Cultura Mitológica (por defecto)</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                           <SelectContent>{MYTHOLOGICAL_CULTURES.map(c => (<SelectItem key={c} value={c}>{c}</SelectItem>))}</SelectContent>

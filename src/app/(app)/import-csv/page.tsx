@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -60,7 +61,16 @@ export default function ImportCsvPage() {
     };
 
     const handleCopyPrompts = () => {
-        if (!parsedData || !parsedData.rows.length || !parsedData.headers.includes('details')) {
+        if (!parsedData || !parsedData.rows.length) {
+            toast({
+                variant: "destructive",
+                title: "No hay datos para copiar",
+                description: "Por favor, carga primero un archivo CSV.",
+            });
+            return;
+        }
+
+        if (!parsedData.headers.includes('details')) {
              toast({
                 variant: "destructive",
                 title: "No se pueden copiar los prompts",
@@ -68,14 +78,26 @@ export default function ImportCsvPage() {
             });
             return;
         }
-
-        const prompts = parsedData.rows.map(row => row.details).filter(Boolean).join('\n');
         
-        if (prompts) {
-            navigator.clipboard.writeText(prompts);
+        const hasCulture = parsedData.headers.includes('culture');
+
+        const formattedPrompts = parsedData.rows.map(row => {
+            const details = row.details?.trim();
+            if (!details) return null;
+
+            if (hasCulture && row.culture?.trim()) {
+                const culture = row.culture.trim();
+                return `${culture};${details}`;
+            }
+            return details;
+        }).filter(Boolean).join('\n');
+
+        
+        if (formattedPrompts) {
+            navigator.clipboard.writeText(formattedPrompts);
             toast({
                 title: "¡Prompts Copiados!",
-                description: "Todos los prompts de la columna 'details' están en tu portapapeles, listos para pegar en Creación en Lote.",
+                description: "Tus prompts están en tu portapapeles, listos para pegar en Creación en Lote.",
             });
         } else {
              toast({
@@ -104,7 +126,7 @@ export default function ImportCsvPage() {
                         <CardHeader>
                             <CardTitle>1. Subir Archivo CSV</CardTitle>
                             <CardDescription>
-                                El archivo debe contener una columna de encabezado llamada `details` para los prompts.
+                                El archivo debe contener una columna de encabezado llamada `details` para los prompts. Opcionalmente, incluye una columna `culture`.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
