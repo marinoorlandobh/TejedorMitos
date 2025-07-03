@@ -207,7 +207,20 @@ export default function GalleryPage() {
                     </Badge>
                   </div>
                   <CardDescription className="text-xs">
-                    {formatDistanceToNow(new Date(creation.createdAt), { addSuffix: true, locale: es })}
+                    {(() => {
+                      const p = creation.params as any;
+                      const culture = p.culture || p.mythologicalContext || p.contextCulture;
+                      const timeAgo = formatDistanceToNow(new Date(creation.createdAt), { addSuffix: true, locale: es });
+                      if (culture) {
+                        return (
+                          <span className="truncate">
+                            <span className="font-semibold">{culture}</span>
+                            <span className="text-muted-foreground/80"> • {timeAgo}</span>
+                          </span>
+                        );
+                      }
+                      return timeAgo;
+                    })()}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="relative flex-grow flex items-center justify-center p-0 aspect-square bg-muted/30">
