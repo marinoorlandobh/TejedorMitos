@@ -60,6 +60,26 @@ export default function BatchCreatePage() {
     },
   });
 
+  const getProcessedPromptLines = (rawPrompts: string): string[] => {
+    let lines = rawPrompts.split('\n').filter(p => p.trim() !== '');
+    if (lines.length === 0) return [];
+
+    const firstLine = lines[0].toLowerCase().trim();
+    const normalizedFirstLine = firstLine.replace(/\t/g, ';').replace(/\s*;\s*/g, ';');
+    
+    const commonHeaders = [
+      'cultura;prompt',
+      'culture;prompt',
+      'cultura;details',
+      'culture;details',
+    ];
+
+    if (commonHeaders.includes(normalizedFirstLine)) {
+      lines.shift(); // Remove the header line
+    }
+    return lines;
+  };
+
   const processSinglePrompt = async (promptToProcess: string, cultureForPrompt: string, index: number, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
     setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined, prompt: promptToProcess } : r));
 
@@ -111,7 +131,8 @@ export default function BatchCreatePage() {
 
   async function onSubmit(data: BatchCreateFormData) {
     setIsProcessingBatch(true);
-    const promptLines = data.prompts.split('\n').filter(p => p.trim() !== '');
+    const promptLines = getProcessedPromptLines(data.prompts);
+
     if (promptLines.length === 0) {
         toast({ variant: "destructive", title: "Error", description: "Por favor, introduce al menos un prompt." });
         setIsProcessingBatch(false);
@@ -135,7 +156,7 @@ export default function BatchCreatePage() {
   }
 
   const getTaskForIndex = (index: number) => {
-    const allLines = form.getValues().prompts.split('\n').filter(p => p.trim() !== '');
+    const allLines = getProcessedPromptLines(form.getValues().prompts);
     const line = allLines[index];
     if (!line) return null;
     return getTaskForLine(line, form.getValues().culture);
@@ -152,7 +173,7 @@ export default function BatchCreatePage() {
 
   const handleEdit = (index: number) => {
     setEditingIndex(index);
-    const allLines = form.getValues().prompts.split('\n').filter(p => p.trim() !== '');
+    const allLines = getProcessedPromptLines(form.getValues().prompts);
     const line = allLines[index] || results[index].prompt;
     setEditedPromptText(line);
   };
@@ -230,7 +251,7 @@ export default function BatchCreatePage() {
                           <Textarea placeholder="Pega tus prompts aquí, uno por línea..." {...field} rows={8} />
                         </FormControl>
                          <FormDescriptionComponent>
-                            Usa el formato `cultura;prompt` por línea, o copia y pega directamente desde una hoja de cálculo (columnas: Cultura, Prompt).
+                            Usa el formato `cultura;prompt` por línea, o copia y pega directamente desde una hoja de cálculo (columnas: Cultura, Prompt). El encabezado se ignorará automáticamente.
                           </FormDescriptionComponent>
                         <FormMessage />
                       </FormItem>
