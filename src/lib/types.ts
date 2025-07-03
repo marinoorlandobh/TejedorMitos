@@ -63,7 +63,7 @@ export interface ReimaginedOutputData {
 // For form validation and AI flow inputs/outputs, we can reuse/import from Zod schemas if defined elsewhere
 // or create specific types here if needed. The AI flows already export their Zod-derived types.
 
-export const MYTHOLOGICAL_CULTURES = ["Griega", "Nórdica", "Egipcia", "Japonesa", "Hindú", "Celta", "Mesopotámica", "Personalizada"];
+export const MYTHOLOGICAL_CULTURES = ["Azteca", "Celta", "China", "Egipcia", "Griega", "Hebrea", "Hindú", "Inca", "Japonesa", "Maya", "Mesopotámica", "Nórdica", "Romana", "Personalizada"];
 export const IMAGE_STYLES = ["Fotorrealista", "Anime", "Pintura al Óleo", "Acuarela", "Abstracto", "Pixel Art", "Cómic", "Steampunk", "Cyberpunk", "Arte Fantástico"];
 export const ASPECT_RATIOS = ["1:1 (Cuadrado)", "16:9 (Panorámico)", "9:16 (Vertical)", "4:3 (Estándar)", "3:4 (Vertical Estándar)"];
 export const IMAGE_QUALITIES = ["Estándar", "Alta", "Ultra"];
@@ -79,4 +79,3 @@ export const mapAspectRatio = (aspectRatioString: string): { width: number, heig
     default: return undefined;
   }
 };
-
