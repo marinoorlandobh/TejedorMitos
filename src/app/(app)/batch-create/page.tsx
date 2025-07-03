@@ -87,15 +87,25 @@ export default function BatchCreatePage() {
   
   const getTaskForLine = (line: string, defaultCulture: string) => {
     let culture = defaultCulture;
-    let prompt = line.trim();
-    if (prompt.includes(';')) {
-        const parts = prompt.split(';');
-        const potentialCulture = parts[0].trim();
-        if (potentialCulture) {
+    // First, replace a tab with a semicolon to support Excel copy-paste.
+    // Then, trim the result.
+    let processedLine = line.replace('\t', ';').trim();
+    let prompt = processedLine;
+
+    // We split by the separator only once to handle prompts that might contain semicolons.
+    const separatorIndex = processedLine.indexOf(';');
+
+    if (separatorIndex > 0 && separatorIndex < processedLine.length - 1) {
+        const potentialCulture = processedLine.substring(0, separatorIndex).trim();
+        const restOfPrompt = processedLine.substring(separatorIndex + 1).trim();
+
+        // If both parts are non-empty, we'll consider it a culture/prompt pair.
+        if (potentialCulture && restOfPrompt) {
             culture = potentialCulture;
-            prompt = parts.slice(1).join(';').trim();
+            prompt = restOfPrompt;
         }
     }
+    
     return { prompt, culture };
   };
 
@@ -220,7 +230,7 @@ export default function BatchCreatePage() {
                           <Textarea placeholder="Pega tus prompts aquí, uno por línea..." {...field} rows={8} />
                         </FormControl>
                          <FormDescriptionComponent>
-                            Usa el formato `cultura;prompt` para especificar una cultura diferente por línea.
+                            Usa el formato `cultura;prompt` por línea, o copia y pega directamente desde una hoja de cálculo (columnas: Cultura, Prompt).
                           </FormDescriptionComponent>
                         <FormMessage />
                       </FormItem>
