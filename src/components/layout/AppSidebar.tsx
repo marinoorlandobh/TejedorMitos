@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ScrollText, Wand2, ImageIcon, GalleryVerticalEnd, Settings, Sparkles, Palette } from "lucide-react";
+import { ScrollText, Wand2, ImageIcon, GalleryVerticalEnd, Settings, Sparkles, Palette, FileText } from "lucide-react";
 import {
   Sidebar,
   SidebarHeader,
@@ -22,6 +22,7 @@ const navItems = [
   { href: "/create", label: "Crear Mito", icon: Wand2 },
   { href: "/analyze", label: "Analizar Imagen", icon: ImageIcon, subIcon: Sparkles },
   { href: "/reimagine", label: "Reimaginar Imagen", icon: Palette },
+  { href: "/import", label: "Importar PDF", icon: FileText },
   { href: "/gallery", label: "Mi Galería", icon: GalleryVerticalEnd },
   { href: "/settings", label: "Ajustes", icon: Settings },
 ];
