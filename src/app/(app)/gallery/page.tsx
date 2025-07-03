@@ -26,7 +26,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLabel, SelectGroup } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -236,8 +236,10 @@ export default function GalleryPage() {
               <SelectValue placeholder="Items por página" />
             </SelectTrigger>
             <SelectContent>
-              <SelectLabel>Imágenes por página</SelectLabel>
-              {ITEMS_PER_PAGE_OPTIONS.map(v => <SelectItem key={v} value={String(v)}>{v}</SelectItem>)}
+              <SelectGroup>
+                <SelectLabel>Imágenes por página</SelectLabel>
+                {ITEMS_PER_PAGE_OPTIONS.map(v => <SelectItem key={v} value={String(v)}>{v}</SelectItem>)}
+              </SelectGroup>
             </SelectContent>
           </Select>
           <Select value={String(numColumns)} onValueChange={(value) => setNumColumns(Number(value))}>
@@ -245,8 +247,10 @@ export default function GalleryPage() {
               <SelectValue placeholder="Columnas" />
             </SelectTrigger>
             <SelectContent>
-               <SelectLabel>Número de columnas</SelectLabel>
-               {NUM_COLUMNS_OPTIONS.map(v => <SelectItem key={v} value={String(v)}>{v} Columnas</SelectItem>)}
+              <SelectGroup>
+                 <SelectLabel>Número de columnas</SelectLabel>
+                 {NUM_COLUMNS_OPTIONS.map(v => <SelectItem key={v} value={String(v)}>{v} Columnas</SelectItem>)}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
