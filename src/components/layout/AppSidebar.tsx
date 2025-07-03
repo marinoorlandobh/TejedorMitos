@@ -13,10 +13,12 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
+  SidebarMenuBadge,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Separator } from "@/components/ui/separator";
+import { useHistory } from "@/contexts/HistoryContext";
 
 const navItems = [
   { href: "/create", label: "Crear Mito", icon: Wand2 },
@@ -31,6 +33,7 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { creations } = useHistory();
 
   return (
     <Sidebar variant="sidebar" collapsible="icon" side="left" className="border-r">
@@ -60,6 +63,9 @@ export function AppSidebar() {
                   <item.icon className="h-5 w-5" />
                   <span>{item.label}</span>
                   {item.subIcon && <item.subIcon className="ml-auto h-4 w-4 opacity-70" />}
+                  {item.href === "/gallery" && creations && creations.length > 0 && (
+                    <SidebarMenuBadge>{creations.length}</SidebarMenuBadge>
+                  )}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
