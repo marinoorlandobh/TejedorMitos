@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Layers, Loader2, Sparkles, CheckCircle, XCircle, RefreshCw, Edit3, Bot } from 'lucide-react';
+import { Layers, Loader2, Sparkles, CheckCircle, XCircle, RefreshCw, Edit3, Bot, X } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,31 @@ export default function BatchCreatePage() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editedPromptText, setEditedPromptText] = useState('');
   const [isFixingIndex, setIsFixingIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Cargar resultados cacheados desde localStorage al montar la página
+    const cachedData = localStorage.getItem('mythWeaverBatchCreateCache');
+    if (cachedData) {
+        try {
+            const parsedResults = JSON.parse(cachedData);
+            if (Array.isArray(parsedResults)) {
+                setResults(parsedResults);
+            }
+        } catch (e) {
+            console.error("Error loading batch create cache:", e);
+            localStorage.removeItem('mythWeaverBatchCreateCache');
+        }
+    }
+  }, []);
+
+  useEffect(() => {
+    // Guardar resultados en localStorage cada vez que cambian
+    if (results.length > 0) {
+        localStorage.setItem('mythWeaverBatchCreateCache', JSON.stringify(results));
+    } else {
+        localStorage.removeItem('mythWeaverBatchCreateCache');
+    }
+  }, [results]);
 
   const form = useForm<BatchCreateFormData>({
     resolver: zodResolver(batchCreateSchema),
@@ -218,6 +243,14 @@ export default function BatchCreatePage() {
     }
   };
 
+  const handleClearResults = () => {
+    setResults([]);
+    setProgress({ current: 0, total: 0 });
+    setIsProcessingBatch(false);
+    localStorage.removeItem('mythWeaverBatchCreateCache');
+    toast({ title: "Resultados Limpiados", description: "Se ha borrado el historial del lote." });
+  };
+
 
   return (
     <ScrollArea className="h-full">
@@ -326,8 +359,18 @@ export default function BatchCreatePage() {
 
           <Card className="shadow-lg">
             <CardHeader>
-                <CardTitle>2. Progreso y Resultados</CardTitle>
-                <CardDescription>El estado de cada creación aparecerá aquí.</CardDescription>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle>2. Progreso y Resultados</CardTitle>
+                        <CardDescription>El estado de cada creación aparecerá aquí.</CardDescription>
+                    </div>
+                    {results.length > 0 && !isProcessingBatch && (
+                        <Button variant="ghost" size="icon" onClick={handleClearResults} title="Limpiar resultados">
+                            <X className="h-5 w-5" />
+                            <span className="sr-only">Limpiar</span>
+                        </Button>
+                    )}
+                </div>
             </CardHeader>
             <CardContent>
                 <ScrollArea className="h-[500px] pr-4">
@@ -391,3 +434,5 @@ export default function BatchCreatePage() {
     </ScrollArea>
   );
 }
+
+    
