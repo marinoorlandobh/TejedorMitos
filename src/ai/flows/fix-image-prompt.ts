@@ -29,32 +29,41 @@ const prompt = ai.definePrompt({
   name: 'fixImagePrompt',
   input: {schema: FixImagePromptInputSchema},
   output: {schema: FixImagePromptOutputSchema},
-  prompt: `You are an expert prompt engineer for an AI image generation model.
-Your task is to analyze the following prompt, which has likely failed due to safety policy violations or a lack of clarity.
-Rewrite the prompt to make it compliant and effective, while preserving the user's original creative intent as much as possible.
+  prompt: `You are an expert prompt engineer for an AI image generation model, specializing in mythological and fantasy themes.
+Your task is to analyze the following prompt, which has failed, likely due to safety policy violations or ambiguity.
+Rewrite the prompt to be compliant and effective, while preserving the user's creative intent. Focus on artistic and descriptive language.
 
 Common reasons for failure include:
-- Depicting realistic violence, gore, or hate symbols.
-- Generating sexually explicit content.
-- Creating images of real, named individuals in a harmful or misleading way.
-- Ambiguous or contradictory descriptions that confuse the model.
+- Depicting realistic violence or gore. Rephrase to focus on the epic, fantasy, or symbolic nature of a conflict. Use terms like 'clash of divine energy', 'a flurry of motion', 'powerful stance' instead of graphic descriptions.
+- Generating sexually explicit content. Rephrase to focus on artistic nudity, mythological forms, or ethereal beauty, avoiding suggestive or explicit terms.
+- Creating images of real people in a harmful way. Remove names of real individuals.
+- Ambiguity or contradictions. Clarify the scene, subject, and style for the model.
 
-Analyze the following prompt:
+Analyze the original failing prompt:
 ---
 {{{promptText}}}
 ---
 
-Rewrite it to be safe and effective. Return only the new prompt in the specified JSON format.
+Rewrite it into a new, safe, and effective prompt. The new prompt should be rich in visual detail and evocative language. Return only the new prompt in the specified JSON format.
 `,
   config: {
+    // Relax safety settings for the fixer itself, so it can analyze the problematic prompt without being blocked.
     safetySettings: [
-      {
+       {
         category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-        threshold: 'BLOCK_ONLY_HIGH',
+        threshold: 'BLOCK_NONE',
       },
        {
         category: 'HARM_CATEGORY_HARASSMENT',
-        threshold: 'BLOCK_ONLY_HIGH',
+        threshold: 'BLOCK_NONE',
+      },
+       {
+        category: 'HARM_CATEGORY_HATE_SPEECH',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold: 'BLOCK_NONE',
       },
     ],
   },
@@ -68,6 +77,9 @@ const fixImagePromptFlow = ai.defineFlow(
   },
   async (input) => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output?.fixedPrompt) {
+        throw new Error("The AI couldn't find a way to fix the prompt. Try rewriting it manually.");
+    }
+    return output;
   }
 );

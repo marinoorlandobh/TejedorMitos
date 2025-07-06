@@ -12,12 +12,12 @@ import { fixImagePrompt as fixImagePromptFlow, type FixImagePromptInput, type Fi
 
 export async function generateMythImageAction(input: GenerateMythImageInput): Promise<GenerateMythImageOutput> {
   try {
-    // Add any necessary validation or pre-processing here
     const result = await generateMythImageFlow(input);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in generateMythImageAction:", error);
-    throw new Error("Failed to generate image. Please try again.");
+    // Propagate the specific error message from the flow
+    throw new Error(error.message || "Failed to generate image. Please try again.");
   }
 }
 
@@ -65,8 +65,9 @@ export async function fixImagePromptAction(input: FixImagePromptInput): Promise<
   try {
     const result = await fixImagePromptFlow(input);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in fixImagePromptAction:", error);
-    throw new Error("Failed to fix prompt with AI. Please try again.");
+    // Propagate the specific error message from the flow
+    throw new Error(error.message || "Failed to fix prompt with AI. Please try again.");
   }
 }

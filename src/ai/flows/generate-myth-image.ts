@@ -35,13 +35,6 @@ export async function generateMythImage(input: GenerateMythImageInput): Promise<
   return generateMythImageFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateMythImagePrompt',
-  input: {schema: GenerateMythImageInputSchema},
-  output: {schema: GenerateMythImageOutputSchema},
-  prompt: `Generate an image based on the following mythological theme:\n\nCulture: {{{culture}}}\nEntity/Theme: {{{entity}}}\nDetails: {{{details}}}\nStyle: {{{style}}}\nAspect Ratio: {{{aspectRatio}}}\nImage Quality: {{{imageQuality}}}`,
-});
-
 const generateMythImageFlow = ai.defineFlow(
   {
     name: 'generateMythImageFlow',
@@ -49,17 +42,44 @@ const generateMythImageFlow = ai.defineFlow(
     outputSchema: GenerateMythImageOutputSchema,
   },
   async input => {
+    // A more descriptive prompt to guide the model better.
+    const fullPrompt = `A visually rich image in the style of ${input.style}. The primary subject is the entity '${input.entity}' from ${input.culture} mythology. Key scene details include: ${input.details}. The desired aspect ratio is ${input.aspectRatio} and the image quality should be ${input.imageQuality}.`;
+
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: `Culture: ${input.culture}, Entity/Theme: ${input.entity}, Details: ${input.details}, Style: ${input.style}, Aspect Ratio: ${input.aspectRatio}, Image Quality: ${input.imageQuality}`,
+      prompt: fullPrompt,
       config: {
-        responseModalities: ['TEXT', 'IMAGE'], // MUST provide both TEXT and IMAGE, IMAGE only won't work
+        responseModalities: ['TEXT', 'IMAGE'],
+        safetySettings: [
+          {
+            category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+            threshold: 'BLOCK_ONLY_HIGH',
+          },
+          {
+            category: 'HARM_CATEGORY_HARASSMENT',
+            threshold: 'BLOCK_ONLY_HIGH',
+          },
+          {
+            category: 'HARM_CATEGORY_HATE_SPEECH',
+            threshold: 'BLOCK_ONLY_HIGH',
+          },
+          {
+            category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+        ],
       },
     });
 
+    if (!media?.url) {
+      throw new Error(
+        "La IA no pudo generar una imagen para este prompt. Puede infringir las políticas de seguridad. Intenta con la opción 'Corregir con IA' o modifica el prompt."
+      );
+    }
+
     return {
       imageUrl: media.url,
-      prompt: `Culture: ${input.culture}, Entity/Theme: ${input.entity}, Details: ${input.details}, Style: ${input.style}, Aspect Ratio: ${input.aspectRatio}, Image Quality: ${input.imageQuality}`,
+      prompt: fullPrompt,
     };
   }
 );
