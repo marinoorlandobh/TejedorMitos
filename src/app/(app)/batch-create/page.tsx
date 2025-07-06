@@ -32,6 +32,7 @@ type BatchCreateFormData = z.infer<typeof batchCreateSchema>;
 
 interface ResultState {
     prompt: string;
+    culture: string;
     status: 'pending' | 'processing' | 'success' | 'error';
     imageUrl?: string;
     name?: string;
@@ -117,7 +118,7 @@ export default function BatchCreatePage() {
   };
 
   const processSinglePrompt = async (promptToProcess: string, cultureForPrompt: string, index: number, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
-    setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined, prompt: promptToProcess } : r));
+    setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined, prompt: promptToProcess, culture: cultureForPrompt } : r));
 
     try {
         const { creationName, entity } = await extractDetailsFromPromptAction({ promptText: promptToProcess });
@@ -177,7 +178,7 @@ export default function BatchCreatePage() {
 
     const tasks = promptLines.map(line => getTaskForLine(line, data.culture));
 
-    setResults(tasks.map(t => ({ prompt: t.prompt, status: 'pending' })));
+    setResults(tasks.map(t => ({ prompt: t.prompt, culture: t.culture, status: 'pending' })));
     setProgress({ current: 0, total: tasks.length });
     
     const { prompts, culture: defaultCulture, ...restOfSettings } = data;
@@ -191,17 +192,10 @@ export default function BatchCreatePage() {
     toast({ title: "Proceso en Lote Terminado", description: "Revisa los resultados en la lista." });
   }
 
-  const getTaskForIndex = (index: number) => {
-    const allLines = getProcessedPromptLines(form.getValues().prompts);
-    const line = allLines[index];
-    if (!line) return null;
-    return getTaskForLine(line, form.getValues().culture);
-  }
-
   const handleRetry = (index: number) => {
-    const task = getTaskForIndex(index);
-    if (task) {
-      const { prompt, culture } = task;
+    const result = results[index];
+    if (result) {
+      const { prompt, culture } = result;
       const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
       processSinglePrompt(prompt, culture, index, restOfSettings);
     }
@@ -209,9 +203,14 @@ export default function BatchCreatePage() {
 
   const handleEdit = (index: number) => {
     setEditingIndex(index);
-    const allLines = getProcessedPromptLines(form.getValues().prompts);
-    const line = allLines[index] || results[index].prompt;
-    setEditedPromptText(line);
+    const result = results[index];
+    const defaultCulture = form.getValues().culture;
+    let textToEdit = result.prompt;
+
+    if (result.culture !== defaultCulture) {
+        textToEdit = `${result.culture};${result.prompt}`;
+    }
+    setEditedPromptText(textToEdit);
   };
 
   const handleCancelEdit = () => {
@@ -230,12 +229,12 @@ export default function BatchCreatePage() {
 
   const handleAiFixAndRetry = async (index: number) => {
     setIsFixingIndex(index);
-    const task = getTaskForIndex(index);
-    if (!task) {
+    const result = results[index];
+    if (!result) {
         setIsFixingIndex(null);
         return;
     }
-    const { prompt: originalPrompt, culture } = task;
+    const { prompt: originalPrompt, culture } = result;
 
     try {
       toast({ title: "La IA está trabajando...", description: "Revisando y corrigiendo el prompt." });
@@ -267,17 +266,10 @@ export default function BatchCreatePage() {
     toast({ title: "Reintentando el lote...", description: "Se procesarán todos los elementos pendientes o con error." });
 
     const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
-    const allLines = getProcessedPromptLines(prompts);
-
+    
     for (const [index, result] of results.entries()) {
         if (result.status === 'pending' || result.status === 'error') {
-            const line = allLines[index];
-            if (!line) {
-                 setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: 'El prompt original no se encontró en la lista.' } : r));
-                 continue;
-            }
-            const task = getTaskForLine(line, defaultCulture);
-            await processSinglePrompt(task.prompt, task.culture, index, restOfSettings);
+            await processSinglePrompt(result.prompt, result.culture, index, restOfSettings);
         }
     }
 
