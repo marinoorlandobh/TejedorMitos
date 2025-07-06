@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -19,6 +18,7 @@ import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePrompt
 import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 const batchCreateSchema = z.object({
   prompts: z.string().min(1, "Se requiere al menos un prompt."),
@@ -361,7 +361,12 @@ export default function BatchCreatePage() {
             <CardHeader>
                 <div className="flex justify-between items-start">
                     <div>
-                        <CardTitle>2. Progreso y Resultados</CardTitle>
+                        <div className="flex items-center gap-2">
+                           <CardTitle>2. Progreso y Resultados</CardTitle>
+                           {results.length > 0 && (
+                                <Badge variant="secondary">{results.length}</Badge>
+                            )}
+                        </div>
                         <CardDescription>El estado de cada creación aparecerá aquí.</CardDescription>
                     </div>
                     {results.length > 0 && !isProcessingBatch && (
@@ -434,5 +439,3 @@ export default function BatchCreatePage() {
     </ScrollArea>
   );
 }
-
-    
