@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { FileText, UploadCloud, Loader2, Sparkles, Wand2, Copy } from 'lucide-react';
+import { FileText, UploadCloud, Loader2, Sparkles, Wand2, Copy, X } from 'lucide-react';
 
 // Set worker path. IMPORTANT: This is needed for pdf.js to work in the browser.
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -101,6 +101,17 @@ export default function ImportPdfPage() {
         }
     };
     
+    const handleClear = () => {
+        setPdfFileName(null);
+        setExtractedText(null);
+        setAnalysisResult(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+        localStorage.removeItem('mythWeaverImportCache');
+        toast({ title: "Limpiado", description: "Se ha borrado el PDF cargado y sus resultados." });
+    };
+
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
         toast({ title: "¡Copiado!", description: "Prompt copiado al portapapeles." });
@@ -152,8 +163,18 @@ export default function ImportPdfPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <Card className="shadow-lg">
                             <CardHeader>
-                                <CardTitle>1. Subir PDF</CardTitle>
-                                <CardDescription>Selecciona un archivo PDF para comenzar.</CardDescription>
+                                <div className="flex justify-between items-start gap-2">
+                                    <div>
+                                        <CardTitle>1. Subir PDF</CardTitle>
+                                        <CardDescription>Selecciona un archivo PDF para comenzar.</CardDescription>
+                                    </div>
+                                    {pdfFileName && !isProcessingPdf && (
+                                        <Button variant="ghost" size="icon" onClick={handleClear} title="Limpiar PDF actual">
+                                            <X className="h-5 w-5" />
+                                            <span className="sr-only">Limpiar</span>
+                                        </Button>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="flex items-center justify-center w-full">
