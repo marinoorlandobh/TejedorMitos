@@ -115,14 +115,16 @@ export default function ImportPdfPage() {
         if (!analysisResult || analysisResult.extractedData.length === 0) return;
 
         const allPrompts = analysisResult.extractedData
-            .flatMap(mythology => mythology.prompts)
+            .flatMap(mythology =>
+                mythology.prompts.map(prompt => `${mythology.mythologyName};${prompt.replace(/\n/g, ' ')}`)
+            )
             .join('\n');
 
         if (allPrompts) {
             navigator.clipboard.writeText(allPrompts);
             toast({
                 title: "¡Prompts Copiados!",
-                description: "Todos los prompts están en tu portapapeles, listos para pegar en Creación en Lote.",
+                description: "Todos los prompts con su cultura están en tu portapapeles, listos para pegar en Creación en Lote.",
             });
         } else {
             toast({
