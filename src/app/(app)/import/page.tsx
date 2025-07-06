@@ -16,6 +16,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import type { ExtractMythologiesOutput } from '@/ai/flows/extract-mythologies-flow';
 import { extractMythologiesAction } from '@/lib/actions';
 import { CreateFromPromptDialog } from '@/components/CreateFromPromptDialog';
+import { Badge } from '@/components/ui/badge';
 
 export default function ImportPdfPage() {
     const [isLoading, setIsLoading] = useState(false);
@@ -215,7 +216,12 @@ export default function ImportPdfPage() {
                             <CardHeader>
                                 <div className="flex justify-between items-start gap-2">
                                     <div>
-                                        <CardTitle>Resultados de la Generación</CardTitle>
+                                        <div className="flex items-center gap-2">
+                                           <CardTitle>Resultados de la Generación</CardTitle>
+                                           {analysisResult && analysisResult.extractedData.length > 0 && (
+                                                <Badge variant="secondary">{analysisResult.extractedData.length}</Badge>
+                                            )}
+                                        </div>
                                         <CardDescription>Mitologías y prompts extraídos por la IA.</CardDescription>
                                     </div>
                                     {analysisResult && analysisResult.extractedData.length > 0 && (
