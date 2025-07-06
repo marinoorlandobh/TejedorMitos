@@ -65,7 +65,7 @@ const generateMythImageFlow = ai.defineFlow(
           },
           {
             category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+            threshold: 'BLOCK_ONLY_HIGH',
           },
         ],
       },
@@ -73,7 +73,7 @@ const generateMythImageFlow = ai.defineFlow(
 
     if (!media?.url) {
       throw new Error(
-        "La IA no pudo generar una imagen para este prompt. Puede infringir las políticas de seguridad. Intenta con la opción 'Corregir con IA' o modifica el prompt."
+        "La generación de imagen falló, probablemente por infringir las políticas de seguridad del modelo. Esto puede ocurrir con escenas de batalla o desnudos artísticos. Intenta usar la opción 'Corregir con IA' para reescribir el prompt o modifícalo manualmente para que sea más descriptivo y menos explícito."
       );
     }
 
