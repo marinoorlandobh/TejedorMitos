@@ -16,6 +16,9 @@ export async function generateMythImageAction(input: GenerateMythImageInput): Pr
     return result;
   } catch (error: any) {
     console.error("Error in generateMythImageAction:", error);
+    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
+        throw new Error("Has excedido tu cuota de generación de imágenes. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+    }
     // Propagate the specific error message from the flow
     throw new Error(error.message || "Failed to generate image. Please try again.");
   }
@@ -25,9 +28,12 @@ export async function analyzeUploadedImageAction(input: AnalyzeUploadedImageInpu
   try {
     const result = await analyzeUploadedImageFlow(input);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in analyzeUploadedImageAction:", error);
-    throw new Error("Failed to analyze image. Please try again.");
+    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
+        throw new Error("Has excedido tu cuota de análisis de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+    }
+    throw new Error(error.message || "Failed to analyze image. Please try again.");
   }
 }
 
@@ -35,9 +41,12 @@ export async function reimagineUploadedImageAction(input: ReimagineUploadedImage
   try {
     const result = await reimagineUploadedImageFlow(input);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in reimagineUploadedImageAction:", error);
-    throw new Error("Failed to reimagine image. Please try again.");
+    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
+        throw new Error("Has excedido tu cuota de generación de imágenes. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+    }
+    throw new Error(error.message || "Failed to reimagine image. Please try again.");
   }
 }
 
@@ -45,9 +54,12 @@ export async function extractMythologiesAction(input: ExtractMythologiesInput): 
   try {
     const result = await extractMythologiesFlow(input);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in extractMythologiesAction:", error);
-    throw new Error("Failed to extract mythologies from text. Please try again.");
+     if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
+        throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+    }
+    throw new Error(error.message || "Failed to extract mythologies from text. Please try again.");
   }
 }
 
@@ -57,6 +69,9 @@ export async function extractDetailsFromPromptAction(input: ExtractDetailsInput)
     return result;
   } catch (error: any) {
     console.error("Error in extractDetailsFromPromptAction:", error);
+    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
+        throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+    }
     throw new Error(error.message || "No se pudieron extraer los detalles del prompt. Por favor, inténtalo de nuevo.");
   }
 }
@@ -67,6 +82,9 @@ export async function fixImagePromptAction(input: FixImagePromptInput): Promise<
     return result;
   } catch (error: any) {
     console.error("Error in fixImagePromptAction:", error);
+     if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
+        throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+    }
     // Propagate the specific error message from the flow
     throw new Error(error.message || "Failed to fix prompt with AI. Please try again.");
   }
