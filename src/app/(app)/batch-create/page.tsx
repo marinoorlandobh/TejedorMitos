@@ -49,31 +49,6 @@ export default function BatchCreatePage() {
   const [editedPromptText, setEditedPromptText] = useState('');
   const [isFixingIndex, setIsFixingIndex] = useState<number | null>(null);
 
-  useEffect(() => {
-    // Cargar resultados cacheados desde localStorage al montar la página
-    const cachedData = localStorage.getItem('mythWeaverBatchCreateCache');
-    if (cachedData) {
-        try {
-            const parsedResults = JSON.parse(cachedData);
-            if (Array.isArray(parsedResults)) {
-                setResults(parsedResults);
-            }
-        } catch (e) {
-            console.error("Error loading batch create cache:", e);
-            localStorage.removeItem('mythWeaverBatchCreateCache');
-        }
-    }
-  }, []);
-
-  useEffect(() => {
-    // Guardar resultados en localStorage cada vez que cambian
-    if (results.length > 0) {
-        localStorage.setItem('mythWeaverBatchCreateCache', JSON.stringify(results));
-    } else {
-        localStorage.removeItem('mythWeaverBatchCreateCache');
-    }
-  }, [results]);
-
   const form = useForm<BatchCreateFormData>({
     resolver: zodResolver(batchCreateSchema),
     defaultValues: {
@@ -84,6 +59,42 @@ export default function BatchCreatePage() {
       imageQuality: IMAGE_QUALITIES[0],
     },
   });
+  
+  const promptsValue = form.watch('prompts');
+
+  useEffect(() => {
+    // Cargar resultados y prompts cacheados desde localStorage al montar la página
+    const cachedData = localStorage.getItem('mythWeaverBatchCreateCache');
+    if (cachedData) {
+        try {
+            const { results: parsedResults, prompts: cachedPrompts } = JSON.parse(cachedData);
+            if (Array.isArray(parsedResults)) {
+                setResults(parsedResults);
+            }
+            if (cachedPrompts && typeof cachedPrompts === 'string') {
+                form.setValue('prompts', cachedPrompts);
+            }
+        } catch (e) {
+            console.error("Error loading batch create cache:", e);
+            localStorage.removeItem('mythWeaverBatchCreateCache');
+        }
+    }
+  }, []); // El array de dependencias vacío asegura que esto solo se ejecute una vez al montar
+
+
+  useEffect(() => {
+    // Guardar resultados y prompts en localStorage cada vez que cambian
+    if (results.length > 0) {
+        const cache = {
+            results,
+            prompts: promptsValue
+        };
+        localStorage.setItem('mythWeaverBatchCreateCache', JSON.stringify(cache));
+    } else {
+        localStorage.removeItem('mythWeaverBatchCreateCache');
+    }
+  }, [results, promptsValue]);
+
 
   const getProcessedPromptLines = (rawPrompts: string): string[] => {
     let lines = rawPrompts.split('\n').filter(p => p.trim() !== '');
@@ -250,7 +261,31 @@ export default function BatchCreatePage() {
     localStorage.removeItem('mythWeaverBatchCreateCache');
     toast({ title: "Resultados Limpiados", description: "Se ha borrado el historial del lote." });
   };
+  
+  const handleRetryAll = async () => {
+    setIsProcessingBatch(true);
+    toast({ title: "Reintentando el lote...", description: "Se procesarán todos los elementos pendientes o con error." });
 
+    const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
+    const allLines = getProcessedPromptLines(prompts);
+
+    for (const [index, result] of results.entries()) {
+        if (result.status === 'pending' || result.status === 'error') {
+            const line = allLines[index];
+            if (!line) {
+                 setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: 'El prompt original no se encontró en la lista.' } : r));
+                 continue;
+            }
+            const task = getTaskForLine(line, defaultCulture);
+            await processSinglePrompt(task.prompt, task.culture, index, restOfSettings);
+        }
+    }
+
+    setIsProcessingBatch(false);
+    toast({ title: "Proceso de reintento terminado", description: "Revisa los resultados actualizados." });
+  };
+  
+  const hasFailedOrPendingItems = results.some(r => r.status === 'error' || r.status === 'pending');
 
   return (
     <ScrollArea className="h-full">
@@ -369,12 +404,20 @@ export default function BatchCreatePage() {
                         </div>
                         <CardDescription>El estado de cada creación aparecerá aquí.</CardDescription>
                     </div>
-                    {results.length > 0 && !isProcessingBatch && (
-                        <Button variant="ghost" size="icon" onClick={handleClearResults} title="Limpiar resultados">
-                            <X className="h-5 w-5" />
-                            <span className="sr-only">Limpiar</span>
-                        </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {hasFailedOrPendingItems && !isProcessingBatch && (
+                            <Button variant="outline" size="sm" onClick={handleRetryAll}>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Reintentar Todo
+                            </Button>
+                        )}
+                        {results.length > 0 && !isProcessingBatch && (
+                            <Button variant="ghost" size="icon" onClick={handleClearResults} title="Limpiar resultados">
+                                <X className="h-5 w-5" />
+                                <span className="sr-only">Limpiar</span>
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>
@@ -420,12 +463,12 @@ export default function BatchCreatePage() {
                               </div>
                             ) : result.status === 'error' && (
                               <div className="flex justify-end gap-2">
-                                <Button size="sm" variant="outline" onClick={() => handleAiFixAndRetry(index)} disabled={isFixingIndex === index}>
+                                <Button size="sm" variant="outline" onClick={() => handleAiFixAndRetry(index)} disabled={isProcessingBatch || isFixingIndex === index}>
                                   {isFixingIndex === index ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                                    Corregir con IA
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => handleEdit(index)} disabled={isFixingIndex === index}><Edit3 className="mr-2 h-4 w-4" /> Editar</Button>
-                                <Button size="sm" onClick={() => handleRetry(index)} disabled={isFixingIndex === index}><RefreshCw className="mr-2 h-4 w-4" /> Reintentar</Button>
+                                <Button size="sm" variant="outline" onClick={() => handleEdit(index)} disabled={isProcessingBatch || isFixingIndex === index}><Edit3 className="mr-2 h-4 w-4" /> Editar</Button>
+                                <Button size="sm" onClick={() => handleRetry(index)} disabled={isProcessingBatch || isFixingIndex === index}><RefreshCw className="mr-2 h-4 w-4" /> Reintentar</Button>
                               </div>
                             )}
                           </div>
