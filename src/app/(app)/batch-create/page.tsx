@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Layers, Loader2, Sparkles, CheckCircle, XCircle, RefreshCw, Edit3, Bot, X } from 'lucide-react';
+import { Layers, Loader2, Sparkles, CheckCircle, XCircle, RefreshCw, Edit3, Bot, X, PauseCircle } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -72,6 +72,8 @@ export default function BatchCreatePage() {
   const [editedPromptText, setEditedPromptText] = useState('');
   const [isFixingIndex, setIsFixingIndex] = useState<number | null>(null);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const form = useForm<BatchCreateFormData>({
     resolver: zodResolver(batchCreateSchema),
     defaultValues: {
@@ -86,7 +88,6 @@ export default function BatchCreatePage() {
   const promptsValue = form.watch('prompts');
 
   useEffect(() => {
-    // Cargar resultados y prompts cacheados desde localStorage al montar la página
     const cachedData = localStorage.getItem('mythWeaverBatchCreateCache');
     if (cachedData) {
         try {
@@ -102,11 +103,10 @@ export default function BatchCreatePage() {
             localStorage.removeItem('mythWeaverBatchCreateCache');
         }
     }
-  }, []); // El array de dependencias vacío asegura que esto solo se ejecute una vez al montar
+  }, []); 
 
 
   useEffect(() => {
-    // Guardar resultados y prompts en localStorage cada vez que cambian
     if (results.length > 0) {
         const cache = {
             results,
@@ -134,7 +134,7 @@ export default function BatchCreatePage() {
     ];
 
     if (commonHeaders.includes(normalizedFirstLine)) {
-      lines.shift(); // Remove the header line
+      lines.shift(); 
     }
     return lines;
   };
@@ -159,7 +159,7 @@ export default function BatchCreatePage() {
     setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined, prompt: promptToProcess, culture: cultureForPrompt } : r));
 
     try {
-        const TIMEOUT_MS = 60000; // 60-second timeout
+        const TIMEOUT_MS = 60000; 
         const result = await withTimeout(
             runSinglePromptProcessing(promptToProcess, cultureForPrompt, settings),
             TIMEOUT_MS
@@ -177,19 +177,14 @@ export default function BatchCreatePage() {
   
   const getTaskForLine = (line: string, defaultCulture: string) => {
     let culture = defaultCulture;
-    // First, replace a tab with a semicolon to support Excel copy-paste.
-    // Then, trim the result.
     let processedLine = line.replace('\t', ';').trim();
     let prompt = processedLine;
-
-    // We split by the separator only once to handle prompts that might contain semicolons.
     const separatorIndex = processedLine.indexOf(';');
 
     if (separatorIndex > 0 && separatorIndex < processedLine.length - 1) {
         const potentialCulture = processedLine.substring(0, separatorIndex).trim();
         const restOfPrompt = processedLine.substring(separatorIndex + 1).trim();
 
-        // If both parts are non-empty, we'll consider it a culture/prompt pair.
         if (potentialCulture && restOfPrompt) {
             culture = potentialCulture;
             prompt = restOfPrompt;
@@ -201,6 +196,9 @@ export default function BatchCreatePage() {
 
   async function onSubmit(data: BatchCreateFormData) {
     setIsProcessingBatch(true);
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     const promptLines = getProcessedPromptLines(data.prompts);
 
     if (promptLines.length === 0) {
@@ -217,13 +215,27 @@ export default function BatchCreatePage() {
     const { prompts, culture: defaultCulture, ...restOfSettings } = data;
 
     for (const [index, task] of tasks.entries()) {
+        if (signal.aborted) {
+            toast({ title: "Proceso Detenido", description: "La generación en lote fue detenida por el usuario." });
+            break; 
+        }
         await processSinglePrompt(task.prompt, task.culture, index, restOfSettings);
         setProgress(prev => ({ ...prev, current: index + 1 }));
     }
 
     setIsProcessingBatch(false);
-    toast({ title: "Proceso en Lote Terminado", description: "Revisa los resultados en la lista." });
+    abortControllerRef.current = null; 
+
+    if (!signal.aborted) {
+      toast({ title: "Proceso en Lote Terminado", description: "Revisa los resultados en la lista." });
+    }
   }
+
+  const handleStopProcessing = () => {
+    if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+    }
+  };
 
   const handleRetry = (index: number) => {
     const result = results[index];
@@ -296,18 +308,27 @@ export default function BatchCreatePage() {
   
   const handleRetryAll = async () => {
     setIsProcessingBatch(true);
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
     toast({ title: "Reintentando el lote...", description: "Se procesarán todos los elementos pendientes o con error." });
 
     const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
     
     for (const [index, result] of results.entries()) {
+        if (signal.aborted) {
+            toast({ title: "Proceso Detenido", description: "La generación en lote fue detenida." });
+            break;
+        }
         if (result.status === 'pending' || result.status === 'error') {
             await processSinglePrompt(result.prompt, result.culture, index, restOfSettings);
         }
     }
 
     setIsProcessingBatch(false);
-    toast({ title: "Proceso de reintento terminado", description: "Revisa los resultados actualizados." });
+    abortControllerRef.current = null;
+    if (!signal.aborted) {
+      toast({ title: "Proceso de reintento terminado", description: "Revisa los resultados actualizados." });
+    }
   };
   
   const hasFailedOrPendingItems = results.some(r => r.status === 'error' || r.status === 'pending');
@@ -408,10 +429,18 @@ export default function BatchCreatePage() {
                       )}
                     />
                   </div>
-                  <Button type="submit" disabled={isProcessingBatch} className="w-full">
-                    {isProcessingBatch ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                    {isProcessingBatch ? `Generando ${progress.current} de ${progress.total}...` : 'Generar Lote'}
-                  </Button>
+                  <div className="flex w-full items-center gap-2">
+                    <Button type="submit" disabled={isProcessingBatch} className="flex-grow">
+                      {isProcessingBatch ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                      {isProcessingBatch ? `Generando ${progress.current} de ${progress.total}...` : 'Generar Lote'}
+                    </Button>
+                    {isProcessingBatch && (
+                      <Button variant="destructive" onClick={handleStopProcessing} type="button" className="shrink-0">
+                        <PauseCircle className="mr-2 h-4 w-4" />
+                        Detener
+                      </Button>
+                    )}
+                  </div>
                 </form>
               </Form>
             </CardContent>
@@ -507,3 +536,5 @@ export default function BatchCreatePage() {
     </ScrollArea>
   );
 }
+
+    
