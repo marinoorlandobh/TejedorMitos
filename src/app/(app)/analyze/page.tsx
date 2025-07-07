@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { ImageIcon, Sparkles, Loader2, UploadCloud, CheckCircle } from 'lucide-react';
+import { ImageIcon, Sparkles, Loader2, UploadCloud, CheckCircle, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,7 @@ export default function AnalyzeImagePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<{ analysis: string; visualStyle: string } | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const { addCreation } = useHistory();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +79,7 @@ export default function AnalyzeImagePage() {
   async function onSubmit(data: AnalyzeImageFormData) {
     setIsLoading(true);
     setAnalysisResult(null);
+    setAnalysisError(null);
 
     if (!data.imageFile || data.imageFile.length === 0) {
       toast({ variant: "destructive", title: "Error", description: "Por favor, sube una imagen." });
@@ -119,7 +121,9 @@ export default function AnalyzeImagePage() {
       toast({ title: "¡Análisis Completado!", description: "El análisis de la imagen se ha guardado en tu galería." });
     } catch (error: any) {
       console.error("Error analyzing image:", error);
-      toast({ variant: "destructive", title: "Error", description: error.message || "Error al analizar la imagen." });
+      const errorMessage = error.message || "Error al analizar la imagen.";
+      setAnalysisError(errorMessage);
+      toast({ variant: "destructive", title: "Error", description: errorMessage });
     } finally {
       setIsLoading(false);
     }
@@ -262,7 +266,14 @@ export default function AnalyzeImagePage() {
                   <p className="text-lg">Analizando imagen... por favor espera.</p>
                 </div>
               )}
-              {!isLoading && analysisResult && (
+              {!isLoading && analysisError && (
+                <div className="w-full text-center text-destructive p-4 border-2 border-dashed border-destructive/50 rounded-lg">
+                  <AlertTriangle className="h-12 w-12 mx-auto mb-2" />
+                  <p className="font-semibold">Error en el Análisis</p>
+                  <p className="text-sm mt-1">{analysisError}</p>
+                </div>
+              )}
+              {!isLoading && !analysisError && analysisResult && (
                 <div className="w-full space-y-4">
                   <div>
                     <h3 className="font-semibold text-lg">Estilo Visual:</h3>
@@ -276,13 +287,13 @@ export default function AnalyzeImagePage() {
                   </div>
                 </div>
               )}
-              {!isLoading && !analysisResult && !uploadedImagePreview && (
+              {!isLoading && !analysisError && !analysisResult && !uploadedImagePreview && (
                  <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                   <ImageIcon className="h-12 w-12 mx-auto mb-2" />
                   <p>Sube una imagen para comenzar el análisis.</p>
                 </div>
               )}
-               {!isLoading && !analysisResult && uploadedImagePreview && (
+               {!isLoading && !analysisError && !analysisResult && uploadedImagePreview && (
                  <div className="text-center text-muted-foreground p-8">
                   <p>Envía el formulario para obtener el análisis de la IA.</p>
                 </div>

@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Palette, Loader2, UploadCloud, CheckCircle, Copy } from 'lucide-react';
+import { Palette, Loader2, UploadCloud, CheckCircle, Copy, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,7 @@ export default function ReimagineImagePage() {
   const [originalImagePreview, setOriginalImagePreview] = useState<string | null>(null);
   const [reimaginedImage, setReimaginedImage] = useState<string | null>(null);
   const [derivedPrompt, setDerivedPrompt] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const { addCreation } = useHistory();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,6 +86,7 @@ export default function ReimagineImagePage() {
     setIsLoading(true);
     setReimaginedImage(null);
     setDerivedPrompt(null);
+    setGenerationError(null);
 
     if (!data.originalImageFile || data.originalImageFile.length === 0) {
       toast({ variant: "destructive", title: "Error", description: "Por favor, sube una imagen original." });
@@ -130,7 +132,9 @@ export default function ReimagineImagePage() {
       toast({ title: "¡Imagen Reimaginada!", description: "Tu nueva creación se ha guardado en tu galería." });
     } catch (error: any) {
       console.error("Error reimagining image:", error);
-      toast({ variant: "destructive", title: "Error", description: error.message || "Error al reimaginar la imagen." });
+      const errorMessage = error.message || "Error al reimaginar la imagen.";
+      setGenerationError(errorMessage);
+      toast({ variant: "destructive", title: "Error", description: errorMessage });
     } finally {
       setIsLoading(false);
     }
@@ -332,10 +336,17 @@ export default function ReimagineImagePage() {
                     <p>Reimaginando...</p>
                   </div>
                 )}
-                {!isLoading && reimaginedImage && (
+                {!isLoading && generationError && (
+                  <div className="text-center text-destructive p-4 border-2 border-dashed border-destructive/50 rounded-lg">
+                     <AlertTriangle className="h-10 w-10 mx-auto mb-2" />
+                    <p className="font-semibold">Error al Reimaginar</p>
+                     <p className="text-sm mt-1">{generationError}</p>
+                  </div>
+                )}
+                {!isLoading && !generationError && reimaginedImage && (
                   <Image src={reimaginedImage} alt="Imagen reimaginada" width={300} height={300} className="rounded-lg object-contain max-h-[250px] shadow-md" data-ai-hint="transformed art" />
                 )}
-                {!isLoading && !reimaginedImage && (
+                {!isLoading && !generationError && !reimaginedImage && (
                   <div className="text-center text-muted-foreground p-4 border-2 border-dashed rounded-lg">
                      <Palette className="h-10 w-10 mx-auto mb-2 opacity-50" />
                     <p>La nueva imagen aparecerá aquí.</p>

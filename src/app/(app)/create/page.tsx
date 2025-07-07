@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Wand2, Loader2, Eye, Copy } from 'lucide-react';
+import { Wand2, Loader2, Eye, Copy, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ export default function CreateMythPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const { addCreation } = useHistory();
   const { toast } = useToast();
 
@@ -60,6 +61,7 @@ export default function CreateMythPage() {
     setIsLoading(true);
     setGeneratedImage(null);
     setGeneratedPrompt(null);
+    setGenerationError(null);
 
     const aiInputParams: GeneratedParams = {
       culture: data.culture === 'Personalizada' ? data.customCultureDetails || 'Personalizada' : data.culture,
@@ -85,7 +87,9 @@ export default function CreateMythPage() {
       toast({ title: "¡Mito Creado!", description: "Tu creación ha sido guardada en tu galería." });
     } catch (error: any) {
       console.error("Error generating myth:", error);
-      toast({ variant: "destructive", title: "Error", description: error.message || "Error al crear el mito." });
+      const errorMessage = error.message || "Error al crear el mito.";
+      setGenerationError(errorMessage);
+      toast({ variant: "destructive", title: "Error", description: errorMessage });
     } finally {
       setIsLoading(false);
     }
@@ -278,7 +282,14 @@ export default function CreateMythPage() {
                   <p className="text-lg">Tejiendo tu mito... por favor espera.</p>
                 </div>
               )}
-              {!isLoading && generatedImage && (
+              {!isLoading && generationError && (
+                 <div className="text-center text-destructive p-8 border-2 border-dashed border-destructive/50 rounded-lg">
+                  <AlertTriangle className="h-12 w-12 mx-auto mb-2" />
+                  <p className="font-semibold">Error en la Generación</p>
+                  <p className="text-sm mt-1">{generationError}</p>
+                </div>
+              )}
+              {!isLoading && !generationError && generatedImage && (
                 <div className="w-full">
                   <Image
                     src={generatedImage}
@@ -290,7 +301,7 @@ export default function CreateMythPage() {
                   />
                 </div>
               )}
-              {!isLoading && !generatedImage && (
+              {!isLoading && !generationError && !generatedImage && (
                 <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                   <Eye className="h-12 w-12 mx-auto mb-2" />
                   <p>Tu creación se mostrará aquí una vez generada.</p>
