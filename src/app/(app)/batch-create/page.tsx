@@ -93,7 +93,14 @@ export default function BatchCreatePage() {
         try {
             const { results: parsedResults, prompts: cachedPrompts } = JSON.parse(cachedData);
             if (Array.isArray(parsedResults)) {
-                setResults(parsedResults);
+                // If any items were 'processing' when the page was left, reset them to 'pending'
+                // so they can be retried without appearing to be 'stuck'.
+                const correctedResults = parsedResults.map((r: ResultState) => 
+                    r.status === 'processing' 
+                        ? { ...r, status: 'pending' } 
+                        : r
+                );
+                setResults(correctedResults);
             }
             if (cachedPrompts && typeof cachedPrompts === 'string') {
                 form.setValue('prompts', cachedPrompts);
@@ -103,6 +110,7 @@ export default function BatchCreatePage() {
             localStorage.removeItem('mythWeaverBatchCreateCache');
         }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
 
@@ -582,4 +590,6 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
 
   return <Image src={imageUrl} alt={`Generated: ${name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />;
 };
+    
+
     
