@@ -16,7 +16,7 @@ interface HistoryContextType {
     outputData: TextOutputModel['data'],
     imageDataUri?: string, // For generated/reimagined image
     originalImageDataUri?: string // For original image in analyzed/reimagined
-  ) => Promise<string | undefined>;
+  ) => Promise<{ creationId: string; imageId?: string; } | undefined>;
   updateCreationName: (id: string, newName: string) => Promise<void>;
   updateCreationParams: (id: string, newParams: Creation['params']) => Promise<void>;
   deleteCreation: (id: string) => Promise<void>;
@@ -131,7 +131,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     outputData: TextOutputModel['data'],
     imageDataUri?: string,
     originalImageDataUri?: string
-  ): Promise<string| undefined> => {
+  ): Promise<{ creationId: string; imageId?: string; } | undefined> => {
     setLoading(true);
     setError(null);
     try {
@@ -174,7 +174,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         await db.creations.add(newCreation);
       });
       setLoading(false);
-      return creationId;
+      return { creationId, imageId };
     } catch (e: any) {
       console.error("Failed to add creation:", e);
       setError(e.message || "Failed to save creation.");

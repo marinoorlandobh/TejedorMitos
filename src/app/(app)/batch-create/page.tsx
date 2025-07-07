@@ -56,7 +56,7 @@ interface ResultState {
     prompt: string;
     culture: string;
     status: 'pending' | 'processing' | 'success' | 'error';
-    imageUrl?: string;
+    imageId?: string;
     name?: string;
     error?: string;
 }
@@ -65,7 +65,7 @@ export default function BatchCreatePage() {
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [results, setResults] = useState<ResultState[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
-  const { addCreation } = useHistory();
+  const { addCreation, getImageData } = useHistory();
   const { toast } = useToast();
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -112,7 +112,18 @@ export default function BatchCreatePage() {
             results,
             prompts: promptsValue
         };
-        localStorage.setItem('mythWeaverBatchCreateCache', JSON.stringify(cache));
+        try {
+            localStorage.setItem('mythWeaverBatchCreateCache', JSON.stringify(cache));
+        } catch (e) {
+            if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+                toast({
+                    variant: "destructive",
+                    title: "Error de Caché",
+                    description: "No se pudo guardar el progreso del lote porque el almacenamiento del navegador está lleno. El progreso no se guardará si sales de la página.",
+                });
+            }
+            console.error("Error saving batch create cache:", e);
+        }
     } else {
         localStorage.removeItem('mythWeaverBatchCreateCache');
     }
@@ -150,8 +161,13 @@ export default function BatchCreatePage() {
             imageQuality: settings.imageQuality,
         };
         const imageResult = await generateMythImageAction(aiInputParams);
-        await addCreation('generated', creationName, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
-        return { imageUrl: imageResult.imageUrl, name: creationName };
+        const creationResult = await addCreation('generated', creationName, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
+        
+        if (!creationResult) {
+            throw new Error("Error al guardar la creación en la base de datos.");
+        }
+
+        return { imageId: creationResult.imageId, name: creationName };
     };
 
 
@@ -165,7 +181,7 @@ export default function BatchCreatePage() {
             TIMEOUT_MS
         );
         
-        setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageUrl: result.imageUrl, name: result.name } : r));
+        setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageId: result.imageId, name: result.name } : r));
         return true;
     } catch (error: any) {
         console.error(`Error processing prompt: ${promptToProcess}`, error);
@@ -506,8 +522,8 @@ export default function BatchCreatePage() {
                                     {result.status === 'success' && result.name && <p className="text-xs text-primary font-semibold">Generado: {result.name}</p>}
                                     {result.status === 'error' && result.error && <p className="text-xs text-destructive">{result.error}</p>}
                                 </div>
-                                {result.status === 'success' && result.imageUrl && (
-                                    <Image src={result.imageUrl} alt={`Generated: ${result.name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />
+                                {result.status === 'success' && result.imageId && result.name && (
+                                  <BatchImageItem imageId={result.imageId} name={result.name} />
                                 )}
                             </div>
                             {editingIndex === index ? (
@@ -537,4 +553,33 @@ export default function BatchCreatePage() {
   );
 }
 
+const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, name }) => {
+  const { getImageData } = useHistory();
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isActive = true;
+    const fetchImage = async () => {
+      setLoading(true);
+      const imgData = await getImageData(imageId);
+      if (isActive && imgData) {
+        setImageUrl(imgData.imageDataUri);
+      }
+      setLoading(false);
+    };
+    fetchImage();
+    return () => { isActive = false; };
+  }, [imageId, getImageData]);
+
+  if (loading) {
+    return <div className="w-16 h-16 flex items-center justify-center bg-muted/50 rounded-md"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  }
+
+  if (!imageUrl) {
+    return <div className="w-16 h-16 flex items-center justify-center bg-muted/50 text-xs text-muted-foreground p-1 text-center rounded-md">No Encontrada</div>;
+  }
+
+  return <Image src={imageUrl} alt={`Generated: ${name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />;
+};
     
