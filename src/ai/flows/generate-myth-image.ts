@@ -53,7 +53,7 @@ const generateMythImageFlow = ai.defineFlow(
         safetySettings: [
           {
             category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-            threshold: 'BLOCK_ONLY_HIGH',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
           },
           {
             category: 'HARM_CATEGORY_HARASSMENT',
@@ -65,7 +65,7 @@ const generateMythImageFlow = ai.defineFlow(
           },
           {
             category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-            threshold: 'BLOCK_ONLY_HIGH',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
           },
         ],
       },
