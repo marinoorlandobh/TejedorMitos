@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Layers, Loader2, Sparkles, CheckCircle, XCircle, RefreshCw, Edit3, Bot, X, PauseCircle } from 'lucide-react';
+import { Layers, Loader2, Sparkles, CheckCircle, XCircle, RefreshCw, Edit3, Bot, X, PauseCircle, Eraser } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -124,18 +124,26 @@ export default function BatchCreatePage() {
             localStorage.setItem('mythWeaverBatchCreateCache', JSON.stringify(cache));
         } catch (e) {
             if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-                toast({
-                    variant: "destructive",
-                    title: "Error de Caché",
-                    description: "No se pudo guardar el progreso del lote porque el almacenamiento del navegador está lleno. El progreso no se guardará si sales de la página.",
-                });
+                const resultsToCache = results.map(({ imageId, ...rest }) => rest);
+                const minimalCache = { results: resultsToCache, prompts: promptsValue };
+                try {
+                    localStorage.setItem('mythWeaverBatchCreateCache', JSON.stringify(minimalCache));
+                } catch (nestedError) {
+                    console.error("Error saving minimal batch create cache:", nestedError);
+                    toast({
+                        variant: "destructive",
+                        title: "Error de Caché",
+                        description: "No se pudo guardar el progreso del lote. El almacenamiento del navegador está lleno.",
+                    });
+                }
+            } else {
+                console.error("Error saving batch create cache:", e);
             }
-            console.error("Error saving batch create cache:", e);
         }
     } else {
         localStorage.removeItem('mythWeaverBatchCreateCache');
     }
-  }, [results, promptsValue]);
+  }, [results, promptsValue, toast]);
 
 
   const getProcessedPromptLines = (rawPrompts: string): string[] => {
@@ -330,6 +338,11 @@ export default function BatchCreatePage() {
     toast({ title: "Resultados Limpiados", description: "Se ha borrado el historial del lote." });
   };
   
+  const handleClearSuccessful = () => {
+    setResults(prev => prev.filter(r => r.status !== 'success'));
+    toast({ title: "Exitosos Limpiados", description: "Se han quitado los prompts generados correctamente de la lista." });
+  };
+  
   const handleRetryAll = async () => {
     setIsProcessingBatch(true);
     abortControllerRef.current = new AbortController();
@@ -356,6 +369,7 @@ export default function BatchCreatePage() {
   };
   
   const hasFailedOrPendingItems = results.some(r => r.status === 'error' || r.status === 'pending');
+  const hasSuccessfulItems = results.some(r => r.status === 'success');
 
   return (
     <ScrollArea className="h-full">
@@ -482,7 +496,13 @@ export default function BatchCreatePage() {
                         </div>
                         <CardDescription>El estado de cada creación aparecerá aquí.</CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                        {hasSuccessfulItems && !isProcessingBatch && (
+                            <Button variant="outline" size="sm" onClick={handleClearSuccessful}>
+                                <Eraser className="mr-2 h-4 w-4" />
+                                Limpiar Exitosos
+                            </Button>
+                        )}
                         {hasFailedOrPendingItems && !isProcessingBatch && (
                             <Button variant="outline" size="sm" onClick={handleRetryAll}>
                                 <RefreshCw className="mr-2 h-4 w-4" />
