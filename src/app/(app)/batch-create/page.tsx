@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -19,6 +20,27 @@ import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+
+// Helper function to add a timeout to a promise
+const withTimeout = <T,>(promise: Promise<T>, ms: number, timeoutError = new Error(`La operación tardó más de ${ms / 1000} segundos y fue cancelada.`)): Promise<T> => {
+    return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+            reject(timeoutError);
+        }, ms);
+
+        promise.then(
+            (res) => {
+                clearTimeout(timeoutId);
+                resolve(res);
+            },
+            (err) => {
+                clearTimeout(timeoutId);
+                reject(err);
+            }
+        );
+    });
+};
+
 
 const batchCreateSchema = z.object({
   prompts: z.string().min(1, "Se requiere al menos un prompt."),
@@ -117,10 +139,7 @@ export default function BatchCreatePage() {
     return lines;
   };
 
-  const processSinglePrompt = async (promptToProcess: string, cultureForPrompt: string, index: number, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
-    setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined, prompt: promptToProcess, culture: cultureForPrompt } : r));
-
-    try {
+    const runSinglePromptProcessing = async (promptToProcess: string, cultureForPrompt: string, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
         const { creationName, entity } = await extractDetailsFromPromptAction({ promptText: promptToProcess });
         const aiInputParams: GeneratedParams = {
             culture: cultureForPrompt,
@@ -132,7 +151,21 @@ export default function BatchCreatePage() {
         };
         const imageResult = await generateMythImageAction(aiInputParams);
         await addCreation('generated', creationName, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
-        setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageUrl: imageResult.imageUrl, name: creationName } : r));
+        return { imageUrl: imageResult.imageUrl, name: creationName };
+    };
+
+
+  const processSinglePrompt = async (promptToProcess: string, cultureForPrompt: string, index: number, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
+    setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined, prompt: promptToProcess, culture: cultureForPrompt } : r));
+
+    try {
+        const TIMEOUT_MS = 60000; // 60-second timeout
+        const result = await withTimeout(
+            runSinglePromptProcessing(promptToProcess, cultureForPrompt, settings),
+            TIMEOUT_MS
+        );
+        
+        setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageUrl: result.imageUrl, name: result.name } : r));
         return true;
     } catch (error: any) {
         console.error(`Error processing prompt: ${promptToProcess}`, error);
