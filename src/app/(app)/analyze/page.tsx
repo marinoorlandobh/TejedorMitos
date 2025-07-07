@@ -168,7 +168,7 @@ export default function AnalyzeImagePage() {
                   <FormField
                     control={form.control}
                     name="imageFile"
-                    render={({ field: { onChange, ...fieldProps } }) => ( 
+                    render={({ field: { value, onChange, ...fieldProps } }) => ( 
                       <FormItem>
                         <FormLabel>Subir Imagen</FormLabel>
                         <FormControl>

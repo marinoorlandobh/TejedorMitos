@@ -183,7 +183,7 @@ export default function ReimagineImagePage() {
                   <FormField
                     control={form.control}
                     name="originalImageFile"
-                     render={({ field: { onChange, ...fieldProps } }) => (
+                     render={({ field: { value, onChange, ...fieldProps } }) => (
                       <FormItem>
                         <FormLabel>Subir Imagen Original</FormLabel>
                         <FormControl>
