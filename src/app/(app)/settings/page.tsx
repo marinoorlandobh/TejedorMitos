@@ -31,7 +31,7 @@ export default function SettingsPage() {
   const handleExport = async () => {
     try {
       await exportData();
-      toast({ title: "Exportación Exitosa", description: "Los datos de tu galería han sido descargados." });
+      toast({ title: "Exportación Exitosa", description: "Los datos de tu galería se han descargado como un archivo .zip." });
     } catch (exportError: any) {
       toast({ variant: "destructive", title: "Exportación Fallida", description: exportError.message || "No se pudieron exportar los datos." });
     }
@@ -90,7 +90,7 @@ export default function SettingsPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center"><Download className="mr-2 h-5 w-5 text-primary" /> Exportar Datos</CardTitle>
-            <CardDescription>Descarga tu galería completa (creaciones, imágenes y salidas de IA) como un archivo JSON para copia de seguridad o migración.</CardDescription>
+            <CardDescription>Descarga tu galería completa (creaciones, imágenes, etc.) como un archivo ZIP para copia de seguridad o migración.</CardDescription>
           </CardHeader>
           <CardFooter>
             <Button onClick={handleExport} disabled={loading} className="w-full">
@@ -103,7 +103,7 @@ export default function SettingsPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center"><Upload className="mr-2 h-5 w-5 text-primary" /> Importar Datos</CardTitle>
-            <CardDescription>Importa una galería previamente exportada desde un archivo JSON. Puedes elegir fusionar con los datos existentes o reemplazarlos por completo.</CardDescription>
+            <CardDescription>Importa una galería previamente exportada desde un archivo ZIP. Puedes elegir fusionar con los datos existentes o reemplazarlos por completo.</CardDescription>
           </CardHeader>
           <CardContent>
             <RadioGroup defaultValue="merge" value={importMode} onValueChange={(value: 'merge' | 'replace') => setImportMode(value)} className="mb-4">
@@ -116,7 +116,7 @@ export default function SettingsPage() {
                 <Label htmlFor="replace">Reemplazar datos existentes</Label>
               </div>
             </RadioGroup>
-            <Input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
+            <Input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".zip,application/zip" className="hidden" />
           </CardContent>
           <CardFooter>
             <Button onClick={handleImportClick} disabled={loading} className="w-full">

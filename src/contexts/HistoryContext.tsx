@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { v4 as uuidv4 } from 'uuid';
+import JSZip from 'jszip';
 import { db } from '@/lib/db';
 import type { Creation, ImageDataModel, TextOutputModel, GeneratedParams, AnalyzedParams, ReimaginedParams, GeneratedOutputData, AnalyzedOutputData, ReimaginedOutputData } from '@/lib/types';
 
@@ -238,41 +239,46 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setLoading(true);
     setError(null);
     try {
-      const blobParts: (string | Blob)[] = [];
+      const zip = new JSZip();
       
-      // Manually construct the JSON to avoid memory issues with large stringify operations.
-      blobParts.push('{"creations":[');
-      let first = true;
-      await db.creations.each(item => {
-        if (!first) blobParts.push(',');
-        blobParts.push(JSON.stringify(item));
-        first = false;
-      });
-      blobParts.push('],"imageDataStore":[');
+      const creationsData = await db.creations.toArray();
+      const textOutputData = await db.textOutputStore.toArray();
+      const allImageData = await db.imageDataStore.toArray();
+
+      const imageDataMetadata = [];
+      const imagesFolder = zip.folder("images");
+      if (!imagesFolder) {
+        throw new Error("Could not create images folder in zip.");
+      }
+
+      for (const image of allImageData) {
+        const { id, imageDataUri } = image;
+        const match = imageDataUri.match(/^data:(image\/.*?);base64,(.*)$/);
+        if (match) {
+          const mimeType = match[1];
+          const base64Data = match[2];
+          const extension = mimeType.split('/')[1] || 'png';
+          const fileName = `${id}.${extension}`;
+          
+          imagesFolder.file(fileName, base64Data, { base64: true });
+          imageDataMetadata.push({ id, fileName, mimeType });
+        }
+      }
+
+      const exportObject = {
+        creations: creationsData,
+        imageDataStore: imageDataMetadata,
+        textOutputStore: textOutputData,
+      };
+
+      zip.file("data.json", JSON.stringify(exportObject, null, 2));
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
       
-      first = true;
-      await db.imageDataStore.each(item => {
-        if (!first) blobParts.push(',');
-        blobParts.push(JSON.stringify(item));
-        first = false;
-      });
-      blobParts.push('],"textOutputStore":[');
-      
-      first = true;
-      await db.textOutputStore.each(item => {
-        if (!first) blobParts.push(',');
-        blobParts.push(JSON.stringify(item));
-        first = false;
-      });
-      blobParts.push(']}');
-  
-      const blob = new Blob(blobParts, { type: 'application/json' });
-      const creationCount = await db.creations.count();
-      
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `mythweaver_backup_${new Date().toISOString().split('T')[0]}_${creationCount}_creaciones.json`;
+      a.download = `mythweaver_backup_${new Date().toISOString().split('T')[0]}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -282,70 +288,64 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error("Failed to export data:", e);
       setError(e.message || "Failed to export data.");
       setLoading(false);
-      throw e; // Re-throw error to be caught by the caller
+      throw e;
     }
   };
   
-  const importData = (file: File, mode: 'merge' | 'replace'): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        setLoading(true);
-        setError(null);
+  const importData = async (file: File, mode: 'merge' | 'replace'): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const dataFile = zip.file('data.json');
+      if (!dataFile) {
+        throw new Error("El archivo data.json no se encontró en el archivo ZIP. El respaldo puede estar corrupto o tener un formato incorrecto.");
+      }
+      
+      const jsonStr = await dataFile.async('string');
+      const importObj = JSON.parse(jsonStr);
 
-        const reader = new FileReader();
+      if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
+        throw new Error("Formato de archivo de respaldo no válido. El archivo data.json no contiene las secciones requeridas.");
+      }
 
-        reader.onload = async (event) => {
-            try {
-                const buffer = event.target?.result as ArrayBuffer;
-                if (!buffer) {
-                    throw new Error("El archivo está vacío o no se pudo leer.");
-                }
+      const imagesFolder = zip.folder("images");
+      if (!imagesFolder) {
+        throw new Error("La carpeta 'images' no se encontró en el archivo ZIP.");
+      }
 
-                const decoder = new TextDecoder('utf-8');
-                const jsonStr = decoder.decode(buffer);
-                
-                if (!jsonStr.trim()) {
-                    throw new Error("El archivo está vacío o no se pudo decodificar correctamente.");
-                }
+      const newImageDataStore: ImageDataModel[] = [];
+      for (const imageMeta of importObj.imageDataStore) {
+        const { id, fileName, mimeType } = imageMeta;
+        const imageFile = imagesFolder.file(fileName);
+        if (imageFile) {
+          const base64Data = await imageFile.async('base64');
+          const imageDataUri = `data:${mimeType};base64,${base64Data}`;
+          newImageDataStore.push({ id, imageDataUri });
+        } else {
+          console.warn(`Image file ${fileName} not found in zip for id ${id}. Skipping.`);
+        }
+      }
 
-                const importObj = JSON.parse(jsonStr);
+      await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
+        if (mode === 'replace') {
+          await db.creations.clear();
+          await db.imageDataStore.clear();
+          await db.textOutputStore.clear();
+        }
+        await db.creations.bulkPut(importObj.creations as Creation[]);
+        await db.imageDataStore.bulkPut(newImageDataStore);
+        await db.textOutputStore.bulkPut(importObj.textOutputStore as TextOutputModel[]);
+      });
 
-                if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
-                    throw new Error("Formato de archivo de respaldo no válido.");
-                }
-
-                await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
-                    if (mode === 'replace') {
-                        await db.creations.clear();
-                        await db.imageDataStore.clear();
-                        await db.textOutputStore.clear();
-                    }
-                    await db.creations.bulkPut(importObj.creations as Creation[]);
-                    await db.imageDataStore.bulkPut(importObj.imageDataStore as ImageDataModel[]);
-                    await db.textOutputStore.bulkPut(importObj.textOutputStore as TextOutputModel[]);
-                });
-                
-                resolve();
-
-            } catch (e: any) {
-                console.error("Failed to import data:", e);
-                const errorMessage = e.message || "Error al importar datos. Verifique el formato e integridad del archivo.";
-                setError(errorMessage);
-                reject(new Error(errorMessage));
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        reader.onerror = () => {
-            const errorMessage = "Ocurrió un error al leer el archivo. Puede que esté dañado o tenga una codificación incorrecta.";
-            console.error(errorMessage, reader.error);
-            setError(errorMessage);
-            setLoading(false);
-            reject(new Error(errorMessage));
-        };
-
-        reader.readAsArrayBuffer(file);
-    });
+    } catch (e: any) {
+      console.error("Failed to import data:", e);
+      const errorMessage = e.message || "Error al importar datos. Verifique el formato e integridad del archivo.";
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const clearAllData = async () => {
