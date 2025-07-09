@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -103,7 +104,7 @@ export default function SettingsPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center"><Upload className="mr-2 h-5 w-5 text-primary" /> Importar Datos</CardTitle>
-            <CardDescription>Importa una galería previamente exportada desde un archivo ZIP. Puedes elegir fusionar con los datos existentes o reemplazarlos por completo.</CardDescription>
+            <CardDescription>Importa una galería previamente exportada (.zip o .json). Puedes elegir fusionar con los datos existentes o reemplazarlos.</CardDescription>
           </CardHeader>
           <CardContent>
             <RadioGroup defaultValue="merge" value={importMode} onValueChange={(value: 'merge' | 'replace') => setImportMode(value)} className="mb-4">
@@ -116,7 +117,7 @@ export default function SettingsPage() {
                 <Label htmlFor="replace">Reemplazar datos existentes</Label>
               </div>
             </RadioGroup>
-            <Input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".zip,application/zip" className="hidden" />
+            <Input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".zip,application/zip,.json,application/json" className="hidden" />
           </CardContent>
           <CardFooter>
             <Button onClick={handleImportClick} disabled={loading} className="w-full">

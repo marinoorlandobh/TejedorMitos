@@ -296,47 +296,75 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setLoading(true);
     setError(null);
     try {
-      const zip = await JSZip.loadAsync(file);
-      const dataFile = zip.file('data.json');
-      if (!dataFile) {
-        throw new Error("El archivo data.json no se encontró en el archivo ZIP. El respaldo puede estar corrupto o tener un formato incorrecto.");
-      }
-      
-      const jsonStr = await dataFile.async('string');
-      const importObj = JSON.parse(jsonStr);
-
-      if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
-        throw new Error("Formato de archivo de respaldo no válido. El archivo data.json no contiene las secciones requeridas.");
-      }
-
-      const imagesFolder = zip.folder("images");
-      if (!imagesFolder) {
-        throw new Error("La carpeta 'images' no se encontró en el archivo ZIP.");
-      }
-
-      const newImageDataStore: ImageDataModel[] = [];
-      for (const imageMeta of importObj.imageDataStore) {
-        const { id, fileName, mimeType } = imageMeta;
-        const imageFile = imagesFolder.file(fileName);
-        if (imageFile) {
-          const base64Data = await imageFile.async('base64');
-          const imageDataUri = `data:${mimeType};base64,${base64Data}`;
-          newImageDataStore.push({ id, imageDataUri });
-        } else {
-          console.warn(`Image file ${fileName} not found in zip for id ${id}. Skipping.`);
+      if (file.name.endsWith('.zip') || file.type === 'application/zip') {
+        // Handle ZIP import (new format)
+        const zip = await JSZip.loadAsync(file);
+        const dataFile = zip.file('data.json');
+        if (!dataFile) {
+          throw new Error("El archivo data.json no se encontró en el archivo ZIP.");
         }
-      }
+        
+        const jsonStr = await dataFile.async('string');
+        const importObj = JSON.parse(jsonStr);
 
-      await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
-        if (mode === 'replace') {
-          await db.creations.clear();
-          await db.imageDataStore.clear();
-          await db.textOutputStore.clear();
+        if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
+          throw new Error("Formato de archivo de respaldo no válido. El archivo data.json no contiene las secciones requeridas.");
         }
-        await db.creations.bulkPut(importObj.creations as Creation[]);
-        await db.imageDataStore.bulkPut(newImageDataStore);
-        await db.textOutputStore.bulkPut(importObj.textOutputStore as TextOutputModel[]);
-      });
+
+        const imagesFolder = zip.folder("images");
+        if (!imagesFolder) {
+          throw new Error("La carpeta 'images' no se encontró en el archivo ZIP.");
+        }
+
+        const newImageDataStore: ImageDataModel[] = [];
+        for (const imageMeta of importObj.imageDataStore) {
+          const { id, fileName, mimeType } = imageMeta;
+          const imageFile = imagesFolder.file(fileName);
+          if (imageFile) {
+            const base64Data = await imageFile.async('base64');
+            const imageDataUri = `data:${mimeType};base64,${base64Data}`;
+            newImageDataStore.push({ id, imageDataUri });
+          } else {
+            console.warn(`Image file ${fileName} not found in zip for id ${id}. Skipping.`);
+          }
+        }
+
+        await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
+          if (mode === 'replace') {
+            await db.creations.clear();
+            await db.imageDataStore.clear();
+            await db.textOutputStore.clear();
+          }
+          await db.creations.bulkPut(importObj.creations as Creation[]);
+          await db.imageDataStore.bulkPut(newImageDataStore);
+          await db.textOutputStore.bulkPut(importObj.textOutputStore as TextOutputModel[]);
+        });
+
+      } else if (file.name.endsWith('.json') || file.type === 'application/json') {
+        // Handle JSON import (old format)
+        const jsonStr = await file.text();
+        if (!jsonStr || !jsonStr.trim()) {
+            throw new Error("El archivo JSON está vacío o no se pudo leer correctamente.");
+        }
+        const importObj = JSON.parse(jsonStr);
+
+        if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
+          throw new Error("Formato de archivo de respaldo JSON no válido. Faltan secciones requeridas.");
+        }
+
+        await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
+            if (mode === 'replace') {
+                await db.creations.clear();
+                await db.imageDataStore.clear();
+                await db.textOutputStore.clear();
+            }
+            await db.creations.bulkPut(importObj.creations as Creation[]);
+            await db.imageDataStore.bulkPut(importObj.imageDataStore as ImageDataModel[]);
+            await db.textOutputStore.bulkPut(importObj.textOutputStore as TextOutputModel[]);
+        });
+      } else {
+        throw new Error("Tipo de archivo no soportado. Por favor, selecciona un archivo .zip o .json.");
+      }
 
     } catch (e: any) {
       console.error("Failed to import data:", e);
