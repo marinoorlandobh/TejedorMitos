@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -298,10 +299,18 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         reader.onload = async (event) => {
             try {
-                const jsonStr = event.target?.result as string;
-                if (!jsonStr) {
+                if (!event.target?.result) {
                     throw new Error("El archivo está vacío o no se pudo leer.");
                 }
+
+                const buffer = event.target.result as ArrayBuffer;
+                const decoder = new TextDecoder('utf-8');
+                const jsonStr = decoder.decode(buffer);
+                
+                if (!jsonStr.trim()) {
+                    throw new Error("El archivo está vacío o no se pudo decodificar correctamente.");
+                }
+
                 const importObj = JSON.parse(jsonStr);
 
                 if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
@@ -339,7 +348,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
             reject(new Error(errorMessage));
         };
 
-        reader.readAsText(file, "UTF-8");
+        reader.readAsArrayBuffer(file);
     });
   };
 

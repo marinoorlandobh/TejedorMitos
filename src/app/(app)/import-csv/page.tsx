@@ -31,44 +31,69 @@ export default function ImportCsvPage() {
             setCsvFileName(file.name);
             setParsedData(null);
             
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                encoding: "UTF-8", // Force UTF-8 encoding to correctly handle special characters like tildes.
-                complete: (results) => {
-                    // Check for parsing errors which might indicate wrong encoding
-                    if (results.errors.length > 0) {
-                        console.error("Parsing errors:", results.errors);
-                        toast({ variant: "destructive", title: "Error de Análisis", description: "Hubo un problema al leer el archivo. Asegúrate de que esté guardado con codificación UTF-8." });
-                        setIsLoading(false);
-                        setCsvFileName(null);
-                        return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    if (!e.target?.result) {
+                        throw new Error("No se pudo leer el contenido del archivo.");
                     }
+                    const buffer = e.target.result as ArrayBuffer;
+                    // Usamos TextDecoder para un manejo más robusto de la codificación de caracteres.
+                    const decoder = new TextDecoder('utf-8');
+                    const text = decoder.decode(buffer);
 
-                    const headers = results.meta.fields || [];
-                    if (headers.length === 0 || !results.data.length) {
-                        toast({ variant: "destructive", title: "Archivo CSV vacío o inválido", description: "El archivo no contiene encabezados o filas de datos." });
-                        setIsLoading(false);
-                        setCsvFileName(null);
-                        return;
-                    }
-                    setParsedData({ headers, rows: results.data as { [key: string]: string }[] });
-                    setIsLoading(false);
-                    toast({ title: "Archivo Procesado", description: "Se ha cargado y analizado el archivo CSV." });
-                },
-                error: (error: any) => {
-                    console.error("Error parsing CSV:", error);
-                    toast({ variant: "destructive", title: "Error de Análisis", description: "No se pudo procesar el archivo CSV. Intenta guardándolo con codificación UTF-8." });
+                    Papa.parse(text, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (results) => {
+                            if (results.errors.length > 0) {
+                                console.error("Parsing errors:", results.errors);
+                                toast({ variant: "destructive", title: "Error de Análisis", description: "Hubo un problema al leer el archivo. Asegúrate de que esté guardado con codificación UTF-8." });
+                                setIsLoading(false);
+                                setCsvFileName(null);
+                                return;
+                            }
+
+                            const headers = results.meta.fields || [];
+                            if (headers.length === 0 || !results.data.length) {
+                                toast({ variant: "destructive", title: "Archivo CSV vacío o inválido", description: "El archivo no contiene encabezados o filas de datos." });
+                                setIsLoading(false);
+                                setCsvFileName(null);
+                                return;
+                            }
+                            setParsedData({ headers, rows: results.data as { [key: string]: string }[] });
+                            setIsLoading(false);
+                            toast({ title: "Archivo Procesado", description: "Se ha cargado y analizado el archivo CSV." });
+                        },
+                        error: (error: any) => {
+                            console.error("Error parsing CSV:", error);
+                            toast({ variant: "destructive", title: "Error de Análisis", description: "No se pudo procesar el archivo CSV. Intenta guardándolo con codificación UTF-8." });
+                            setIsLoading(false);
+                            setCsvFileName(null);
+                        }
+                    });
+                } catch (err) {
+                    console.error("Error decoding or parsing CSV:", err);
+                    toast({ variant: "destructive", title: "Error de Análisis", description: "No se pudo procesar el archivo CSV. Asegúrate de que esté guardado con codificación UTF-8." });
                     setIsLoading(false);
                     setCsvFileName(null);
                 }
-            });
+            };
+
+            reader.onerror = () => {
+                toast({ variant: "destructive", title: "Error de Lectura", description: "No se pudo leer el archivo. Puede que esté dañado o tenga una codificación incorrecta." });
+                setIsLoading(false);
+                setCsvFileName(null);
+            };
+
+            reader.readAsArrayBuffer(file);
 
         } else if (file) {
             toast({ variant: "destructive", title: "Archivo no válido", description: "Por favor, selecciona un archivo .csv." });
             setCsvFileName(null);
         }
     };
+
 
     const handleCopyPrompts = () => {
         if (!parsedData || !parsedData.rows.length) {
