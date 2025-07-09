@@ -58,11 +58,10 @@ const reimagineImagePrompt = ai.definePrompt({
   Context Entity: {{{contextEntity}}}
   Context Details: {{{contextDetails}}}
   New Visual Style: {{{visualStyle}}}
-  Aspect Ratio: {{{aspectRatio}}}
   Image Quality: {{{imageQuality}}}
 
   Based on the above information, create a detailed prompt to generate a reimagined version of the image.
-  The prompt should be descriptive and consider the new visual style, aspect ratio and desired image quality.
+  The prompt should be descriptive and consider the new visual style and desired image quality.
   Return ONLY the derived prompt. Do not include any other text or explanation.
   Derived Prompt:`, // Ensure clear instructions for the LLM
 });
@@ -75,6 +74,7 @@ const reimagineUploadedImageFlow = ai.defineFlow(
   },
   async input => {
     const {output: {derivedPrompt}} = await reimagineImagePrompt(input);
+    const aspectRatioForApi = input.aspectRatio.split(' ')[0];
 
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
@@ -84,6 +84,7 @@ const reimagineUploadedImageFlow = ai.defineFlow(
       ],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
+        aspectRatio: aspectRatioForApi,
         safetySettings: [
           {
             category: 'HARM_CATEGORY_DANGEROUS_CONTENT',

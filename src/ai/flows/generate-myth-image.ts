@@ -43,13 +43,15 @@ const generateMythImageFlow = ai.defineFlow(
   },
   async input => {
     // A more descriptive prompt to guide the model better.
-    const fullPrompt = `A visually rich image in the style of ${input.style}. The primary subject is the entity '${input.entity}' from ${input.culture} mythology. Key scene details include: ${input.details}. The desired aspect ratio is ${input.aspectRatio} and the image quality should be ${input.imageQuality}.`;
+    const fullPrompt = `A visually rich image in the style of ${input.style}. The primary subject is the entity '${input.entity}' from ${input.culture} mythology. Key scene details include: ${input.details}. The desired image quality is ${input.imageQuality}.`;
+    const aspectRatioForApi = input.aspectRatio.split(' ')[0];
 
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: fullPrompt,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
+        aspectRatio: aspectRatioForApi,
         safetySettings: [
           {
             category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
