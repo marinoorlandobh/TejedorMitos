@@ -239,39 +239,32 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setError(null);
     try {
       const blobParts: (string | Blob)[] = [];
-      blobParts.push('{');
-  
-      // Creations
-      blobParts.push('"creations":[');
-      let firstCreation = true;
+      
+      // Manually construct the JSON to avoid memory issues with large stringify operations.
+      blobParts.push('{"creations":[');
+      let first = true;
       await db.creations.each(item => {
-        if (!firstCreation) blobParts.push(',');
+        if (!first) blobParts.push(',');
         blobParts.push(JSON.stringify(item));
-        firstCreation = false;
+        first = false;
       });
-      blobParts.push('],');
-  
-      // Image Data
-      blobParts.push('"imageDataStore":[');
-      let firstImage = true;
+      blobParts.push('],"imageDataStore":[');
+      
+      first = true;
       await db.imageDataStore.each(item => {
-        if (!firstImage) blobParts.push(',');
+        if (!first) blobParts.push(',');
         blobParts.push(JSON.stringify(item));
-        firstImage = false;
+        first = false;
       });
-      blobParts.push('],');
-  
-      // Text Output Data
-      blobParts.push('"textOutputStore":[');
-      let firstText = true;
+      blobParts.push('],"textOutputStore":[');
+      
+      first = true;
       await db.textOutputStore.each(item => {
-        if (!firstText) blobParts.push(',');
+        if (!first) blobParts.push(',');
         blobParts.push(JSON.stringify(item));
-        firstText = false;
+        first = false;
       });
-      blobParts.push(']');
-  
-      blobParts.push('}');
+      blobParts.push(']}');
   
       const blob = new Blob(blobParts, { type: 'application/json' });
       const creationCount = await db.creations.count();
@@ -386,7 +379,3 @@ export const useHistory = (): HistoryContextType => {
   }
   return context;
 };
-
-    
-
-    
