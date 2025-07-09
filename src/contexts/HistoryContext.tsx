@@ -299,15 +299,8 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         reader.onload = async (event) => {
             try {
-                if (!event.target?.result) {
-                    throw new Error("El archivo está vacío o no se pudo leer.");
-                }
-
-                const buffer = event.target.result as ArrayBuffer;
-                const decoder = new TextDecoder('utf-8');
-                const jsonStr = decoder.decode(buffer);
-                
-                if (!jsonStr.trim()) {
+                const jsonStr = event.target?.result as string;
+                if (!jsonStr || !jsonStr.trim()) {
                     throw new Error("El archivo está vacío o no se pudo decodificar correctamente.");
                 }
 
@@ -348,7 +341,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
             reject(new Error(errorMessage));
         };
 
-        reader.readAsArrayBuffer(file);
+        reader.readAsText(file, 'UTF-8');
     });
   };
 
