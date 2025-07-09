@@ -471,7 +471,7 @@ export default function GalleryPage() {
                 ) : (
                   <DialogTitle className="text-3xl flex items-center">
                     {selectedCreation.name}
-                    <Button variant="ghost" size="icon" onClick={()={() => handleEditName()} className="ml-2">
+                    <Button variant="ghost" size="icon" onClick={handleEditName} className="ml-2">
                       <Edit3 className="h-5 w-5" />
                     </Button>
                   </DialogTitle>
@@ -695,6 +695,4 @@ const ImageItem: React.FC<{ imageId: string, alt: string }> = ({ imageId, alt })
 
   return <Image src={imageUrl} alt={alt} fill className="object-contain transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;
 };
-
-    
     
