@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
-import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info, Columns, Rows, Wand2, ZoomIn } from 'lucide-react';
+import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info, Wand2, ZoomIn, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -434,24 +434,46 @@ export default function GalleryPage() {
               ))}
             </div>
             {totalPages > 1 && (
-              <div className="mt-8 flex items-center justify-center gap-4">
-                  <Button
-                      onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                      disabled={currentPage === 1}
-                      variant="outline"
-                  >
-                      Anterior
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                      Página {currentPage} de {totalPages}
-                  </span>
-                  <Button
-                      onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      variant="outline"
-                  >
-                      Siguiente
-                  </Button>
+              <div className="mt-8 flex items-center justify-center gap-2">
+                <Button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Ir a la primera página"
+                >
+                    <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                    onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                    disabled={currentPage === 1}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Ir a la página anterior"
+                >
+                    <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground mx-2">
+                    Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                    onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Ir a la página siguiente"
+                >
+                    <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Ir a la última página"
+                >
+                    <ChevronsRight className="h-4 w-4" />
+                </Button>
               </div>
             )}
           </>
@@ -699,4 +721,6 @@ const ImageItem: React.FC<{ imageId: string, alt: string }> = ({ imageId, alt })
 
   return <Image src={imageUrl} alt={alt} fill className="object-contain transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;
 };
+    
+
     
