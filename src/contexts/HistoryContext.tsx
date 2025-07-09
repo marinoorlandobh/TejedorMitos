@@ -241,9 +241,21 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const creationsData = await db.creations.toArray();
       const imageData = await db.imageDataStore.toArray();
       const textOutputData = await db.textOutputStore.toArray();
-      const exportObj = { creations: creationsData, imageDataStore: imageData, textOutputStore: textOutputData };
-      const jsonStr = JSON.stringify(exportObj);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
+
+      // Avoid creating a single large string by building the JSON from parts
+      // This prevents "Invalid string length" errors on large galleries.
+      const blobParts = [
+        '{"creations":',
+        JSON.stringify(creationsData),
+        ',"imageDataStore":',
+        JSON.stringify(imageData),
+        ',"textOutputStore":',
+        JSON.stringify(textOutputData),
+        '}'
+      ];
+      
+      const blob = new Blob(blobParts, { type: 'application/json' });
+      
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
