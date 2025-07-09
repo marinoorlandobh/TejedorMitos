@@ -238,45 +238,48 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setLoading(true);
     setError(null);
     try {
-      const creationsData = await db.creations.toArray();
-      const imageData = await db.imageDataStore.toArray();
-      const textOutputData = await db.textOutputStore.toArray();
-  
       const blobParts: (string | Blob)[] = [];
       blobParts.push('{');
   
       // Creations
       blobParts.push('"creations":[');
-      creationsData.forEach((item, index) => {
+      let firstCreation = true;
+      await db.creations.each(item => {
+        if (!firstCreation) blobParts.push(',');
         blobParts.push(JSON.stringify(item));
-        if (index < creationsData.length - 1) blobParts.push(',');
+        firstCreation = false;
       });
       blobParts.push('],');
   
       // Image Data
       blobParts.push('"imageDataStore":[');
-      imageData.forEach((item, index) => {
+      let firstImage = true;
+      await db.imageDataStore.each(item => {
+        if (!firstImage) blobParts.push(',');
         blobParts.push(JSON.stringify(item));
-        if (index < imageData.length - 1) blobParts.push(',');
+        firstImage = false;
       });
       blobParts.push('],');
   
       // Text Output Data
       blobParts.push('"textOutputStore":[');
-      textOutputData.forEach((item, index) => {
+      let firstText = true;
+      await db.textOutputStore.each(item => {
+        if (!firstText) blobParts.push(',');
         blobParts.push(JSON.stringify(item));
-        if (index < textOutputData.length - 1) blobParts.push(',');
+        firstText = false;
       });
       blobParts.push(']');
   
       blobParts.push('}');
   
       const blob = new Blob(blobParts, { type: 'application/json' });
+      const creationCount = await db.creations.count();
       
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `mythweaver_backup_${new Date().toISOString().split('T')[0]}_${creationsData.length}_creaciones.json`;
+      a.download = `mythweaver_backup_${new Date().toISOString().split('T')[0]}_${creationCount}_creaciones.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -299,13 +302,14 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         reader.onload = async (event) => {
             try {
-                if (!event.target?.result) {
-                    throw new Error("No se pudo leer el contenido del archivo.");
+                const buffer = event.target?.result as ArrayBuffer;
+                if (!buffer) {
+                    throw new Error("El archivo está vacío o no se pudo leer.");
                 }
-                const buffer = event.target.result as ArrayBuffer;
+
                 const decoder = new TextDecoder('utf-8');
                 const jsonStr = decoder.decode(buffer);
-
+                
                 if (!jsonStr.trim()) {
                     throw new Error("El archivo está vacío o no se pudo decodificar correctamente.");
                 }
@@ -382,5 +386,7 @@ export const useHistory = (): HistoryContextType => {
   }
   return context;
 };
+
+    
 
     
