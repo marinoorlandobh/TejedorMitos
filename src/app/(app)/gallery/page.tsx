@@ -8,7 +8,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useHistory } from '@/contexts/HistoryContext';
-import type { Creation, ImageDataModel, TextOutputModel, GeneratedParams, AnalyzedParams, ReimaginedParams } from '@/lib/types';
+import type { Creation, ImageDataModel, TextOutputModel, GeneratedParams, AnalyzedParams, ReimaginedParams, ReimaginedOutputData, GeneratedOutputData } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
 import { CreateFromPromptDialog } from '@/components/CreateFromPromptDialog';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
 import { Label } from '@/components/ui/label';
-import { translateTextAction } from '@/lib/actions';
+import { translateTextAction, generateMythImageAction, reimagineUploadedImageAction } from '@/lib/actions';
 
 
 interface CreationFull extends Creation {
@@ -58,7 +58,7 @@ const ITEMS_PER_PAGE_OPTIONS = [2, 4, 6, 8, 10, 20, 50, 100, 200, 300, 400, 500,
 const NUM_COLUMNS_OPTIONS = [2, 3, 4, 5, 6];
 
 export default function GalleryPage() {
-  const { creations, getImageData, getTextOutput, deleteCreation, updateCreationName, updateCreationParams, loading: historyLoading } = useHistory();
+  const { creations, getImageData, getTextOutput, deleteCreation, updateCreationName, updateCreationParams, updateCreationImageAndOutput, loading: historyLoading } = useHistory();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'createdAtDesc' | 'createdAtAsc' | 'nameAsc' | 'nameDesc'>('createdAtDesc');
   const [selectedCreation, setSelectedCreation] = useState<CreationFull | null>(null);
@@ -79,6 +79,7 @@ export default function GalleryPage() {
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatingField, setTranslatingField] = useState<string | null>(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const filteredAndSortedCreations = useMemo(() => {
     let filtered = creations.filter(creation =>
@@ -254,6 +255,62 @@ export default function GalleryPage() {
     } finally {
         setIsTranslating(false);
         setTranslatingField(null);
+    }
+  };
+  
+  const handleRegenerate = async () => {
+    if (!selectedCreation || !editedParams) return;
+
+    setIsRegenerating(true);
+    toast({ title: "Regenerando imagen...", description: "Este proceso puede tardar unos segundos." });
+
+    try {
+        let newImageUrl: string;
+        let newOutputData: GeneratedOutputData | ReimaginedOutputData;
+
+        if (selectedCreation.type === 'generated') {
+            const result = await generateMythImageAction(editedParams as GeneratedParams);
+            newImageUrl = result.imageUrl;
+            newOutputData = { prompt: result.prompt };
+        } else if (selectedCreation.type === 'reimagined' && selectedCreation.originalImageId) {
+            const originalImage = await getImageData(selectedCreation.originalImageId);
+            if (!originalImage) throw new Error("No se pudo encontrar la imagen original para la regeneración.");
+            
+            const result = await reimagineUploadedImageAction({
+                originalImage: originalImage.imageDataUri,
+                ...(editedParams as ReimaginedParams),
+            });
+            newImageUrl = result.reimaginedImage;
+            newOutputData = { derivedPrompt: result.derivedPrompt };
+        } else {
+            throw new Error("Este tipo de creación no se puede regenerar.");
+        }
+
+        const updatedCreation = await updateCreationImageAndOutput(
+            selectedCreation.id,
+            editedParams,
+            newImageUrl,
+            newOutputData
+        );
+
+        if (updatedCreation) {
+            // Fetch all data again to refresh the modal view
+            let imageData, textOutput, originalImageData;
+            if (updatedCreation.imageId) imageData = await getImageData(updatedCreation.imageId);
+            if (updatedCreation.outputId) textOutput = await getTextOutput(updatedCreation.outputId);
+            if (updatedCreation.type === 'reimagined' && updatedCreation.originalImageId) {
+                originalImageData = await getImageData(updatedCreation.originalImageId);
+            }
+            setSelectedCreation({ ...updatedCreation, imageData, textOutput, originalImageData });
+            setIsEditingParams(false); // Exit edit mode on success
+            setEditedParams(null);
+        }
+
+        toast({ title: "¡Regeneración Completa!", description: "La imagen y los datos de la creación han sido actualizados." });
+    } catch (err: any) {
+        toast({ variant: "destructive", title: "Error en la Regeneración", description: err.message });
+    } finally {
+        setIsRegenerating(false);
     }
   };
 
@@ -680,9 +737,15 @@ export default function GalleryPage() {
                                   return null;
                           }
                       })()}
-                      <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" onClick={handleCancelEditParams}>Cancelar</Button>
-                          <Button size="sm" onClick={handleSaveParams}>Guardar</Button>
+                      <div className="flex justify-end gap-2 mt-4 flex-wrap">
+                        <Button variant="ghost" size="sm" onClick={handleCancelEditParams} disabled={isRegenerating}>Cancelar</Button>
+                        <Button size="sm" onClick={handleSaveParams} disabled={isRegenerating}>Guardar Metadatos</Button>
+                        {['generated', 'reimagined'].includes(selectedCreation.type) && (
+                            <Button size="sm" onClick={handleRegenerate} disabled={isRegenerating}>
+                                {isRegenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                Regenerar Imagen
+                            </Button>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -819,6 +882,4 @@ const ImageItem: React.FC<{ imageId: string, alt: string }> = ({ imageId, alt })
 
   return <Image src={imageUrl} alt={alt} fill className="object-contain transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;
 };
-    
-
     

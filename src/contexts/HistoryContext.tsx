@@ -20,6 +20,7 @@ interface HistoryContextType {
   ) => Promise<{ creationId: string; imageId?: string; } | undefined>;
   updateCreationName: (id: string, newName: string) => Promise<void>;
   updateCreationParams: (id: string, newParams: Creation['params']) => Promise<void>;
+  updateCreationImageAndOutput: (id: string, params: Creation['params'], newImageDataUri: string, newOutputData: GeneratedOutputData | ReimaginedOutputData) => Promise<Creation | undefined>;
   deleteCreation: (id: string) => Promise<void>;
   getCreationById: (id: string) => Promise<Creation | undefined>;
   getImageData: (id: string) => Promise<ImageDataModel | undefined>;
@@ -209,6 +210,51 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setLoading(false);
     }
   };
+  
+  const updateCreationImageAndOutput = useCallback(async (id: string, params: Creation['params'], newImageDataUri: string, newOutputData: GeneratedOutputData | ReimaginedOutputData): Promise<Creation | undefined> => {
+    setLoading(true);
+    setError(null);
+    try {
+        let updatedCreation: Creation | undefined;
+        await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
+            const creation = await db.creations.get(id);
+            if (!creation) throw new Error("Creation not found");
+
+            // Delete old image and output
+            if (creation.imageId) await db.imageDataStore.delete(creation.imageId);
+            if (creation.outputId) await db.textOutputStore.delete(creation.outputId);
+            
+            // Add new image and output
+            const newImageId = uuidv4();
+            await db.imageDataStore.add({ id: newImageId, imageDataUri: newImageDataUri });
+
+            const newOutputId = uuidv4();
+            await db.textOutputStore.add({ id: newOutputId, data: newOutputData });
+
+            // Prepare updates
+            const updates: Partial<Creation> = {
+                params,
+                imageId: newImageId,
+                outputId: newOutputId,
+                updatedAt: Date.now(),
+            };
+
+            // Update the creation record
+            await db.creations.update(id, updates);
+            
+            // Construct the full updated creation object to return
+            updatedCreation = { ...creation, ...updates };
+        });
+        setLoading(false);
+        return updatedCreation;
+    } catch (e: any) {
+        console.error("Failed to update creation data:", e);
+        const errorMessage = e.message || "Failed to update creation data.";
+        setError(errorMessage);
+        setLoading(false);
+        throw new Error(errorMessage);
+    }
+  }, []);
 
   const deleteCreation = async (id: string) => {
     setLoading(true);
@@ -394,7 +440,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   return (
-    <HistoryContext.Provider value={{ creations, addCreation, updateCreationName, updateCreationParams, deleteCreation, getCreationById, getImageData, getTextOutput, exportData, importData, clearAllData, loading, error }}>
+    <HistoryContext.Provider value={{ creations, addCreation, updateCreationName, updateCreationParams, updateCreationImageAndOutput, deleteCreation, getCreationById, getImageData, getTextOutput, exportData, importData, clearAllData, loading, error }}>
       {children}
     </HistoryContext.Provider>
   );
