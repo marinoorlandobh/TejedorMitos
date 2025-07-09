@@ -242,17 +242,25 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const imageData = await db.imageDataStore.toArray();
       const textOutputData = await db.textOutputStore.toArray();
 
-      // Avoid creating a single large string by building the JSON from parts
-      // This prevents "Invalid string length" errors on large galleries.
-      const blobParts = [
-        '{"creations":',
-        JSON.stringify(creationsData),
-        ',"imageDataStore":',
-        JSON.stringify(imageData),
-        ',"textOutputStore":',
-        JSON.stringify(textOutputData),
-        '}'
-      ];
+      // Stream-like construction of the JSON to avoid "Invalid string length" errors on very large galleries.
+      const blobParts: (string | Blob)[] = [];
+      
+      const stringifyArrayInChunks = (array: any[]) => {
+          if (array.length === 0) return;
+          blobParts.push(JSON.stringify(array[0]));
+          for (let i = 1; i < array.length; i++) {
+              blobParts.push(',');
+              blobParts.push(JSON.stringify(array[i]));
+          }
+      };
+
+      blobParts.push('{"creations":[');
+      stringifyArrayInChunks(creationsData);
+      blobParts.push('],"imageDataStore":[');
+      stringifyArrayInChunks(imageData);
+      blobParts.push('],"textOutputStore":[');
+      stringifyArrayInChunks(textOutputData);
+      blobParts.push(']}');
       
       const blob = new Blob(blobParts, { type: 'application/json' });
       
