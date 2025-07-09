@@ -463,11 +463,14 @@ export default function GalleryPage() {
               <ScrollArea className="max-h-[80vh] pr-6">
               <DialogHeader>
                 {isEditingName ? (
-                  <div className="flex items-center gap-2">
-                    <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="text-2xl font-bold" />
-                    <Button size="sm" onClick={handleSaveName}>Guardar</Button>
-                    <Button size="sm" variant="outline" onClick={() => setIsEditingName(false)}>Cancelar</Button>
-                  </div>
+                   <>
+                    <DialogTitle className="sr-only">Editando: {selectedCreation.name}</DialogTitle>
+                    <div className="flex items-center gap-2">
+                      <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="text-2xl font-bold" aria-label="Nuevo nombre de la creación" />
+                      <Button size="sm" onClick={handleSaveName}>Guardar</Button>
+                      <Button size="sm" variant="outline" onClick={() => setIsEditingName(false)}>Cancelar</Button>
+                    </div>
+                  </>
                 ) : (
                   <DialogTitle className="text-3xl flex items-center">
                     {selectedCreation.name}
@@ -648,6 +651,7 @@ export default function GalleryPage() {
         {zoomedImageUrl && (
           <Dialog open={!!zoomedImageUrl} onOpenChange={(open) => !open && setZoomedImageUrl(null)}>
             <DialogContent className="p-0 border-0 max-w-5xl bg-transparent shadow-none w-auto h-auto">
+              <DialogTitle className="sr-only">Imagen Ampliada</DialogTitle>
               <Image src={zoomedImageUrl} alt="Imagen ampliada" width={1200} height={1200} className="rounded-lg object-contain w-auto h-auto max-w-[90vw] max-h-[90vh]" />
             </DialogContent>
           </Dialog>
