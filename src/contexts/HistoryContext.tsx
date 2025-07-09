@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -290,38 +289,58 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
   
-  const importData = async (file: File, mode: 'merge' | 'replace') => {
-    setLoading(true);
-    setError(null);
-    try {
-      const jsonStr = await file.text();
-      if (!jsonStr) {
-        throw new Error("El archivo está vacío o no se pudo leer.");
-      }
-      const importObj = JSON.parse(jsonStr);
+  const importData = (file: File, mode: 'merge' | 'replace'): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        setLoading(true);
+        setError(null);
 
-      if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
-        throw new Error("Formato de archivo de respaldo no válido.");
-      }
+        const reader = new FileReader();
 
-      await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
-        if (mode === 'replace') {
-          await db.creations.clear();
-          await db.imageDataStore.clear();
-          await db.textOutputStore.clear();
-        }
-        await db.creations.bulkPut(importObj.creations as Creation[]);
-        await db.imageDataStore.bulkPut(importObj.imageDataStore as ImageDataModel[]);
-        await db.textOutputStore.bulkPut(importObj.textOutputStore as TextOutputModel[]);
-      });
-    } catch (e: any) {
-      console.error("Failed to import data:", e);
-      const errorMessage = e.message || "Error al importar datos. Verifique el formato e integridad del archivo.";
-      setError(errorMessage);
-      throw new Error(errorMessage); // Re-throw so the UI can catch it
-    } finally {
-      setLoading(false);
-    }
+        reader.onload = async (event) => {
+            try {
+                const jsonStr = event.target?.result as string;
+                if (!jsonStr) {
+                    throw new Error("El archivo está vacío o no se pudo leer.");
+                }
+                const importObj = JSON.parse(jsonStr);
+
+                if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
+                    throw new Error("Formato de archivo de respaldo no válido.");
+                }
+
+                await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
+                    if (mode === 'replace') {
+                        await db.creations.clear();
+                        await db.imageDataStore.clear();
+                        await db.textOutputStore.clear();
+                    }
+                    await db.creations.bulkPut(importObj.creations as Creation[]);
+                    await db.imageDataStore.bulkPut(importObj.imageDataStore as ImageDataModel[]);
+                    await db.textOutputStore.bulkPut(importObj.textOutputStore as TextOutputModel[]);
+                });
+                
+                resolve();
+
+            } catch (e: any) {
+                console.error("Failed to import data:", e);
+                const errorMessage = e.message || "Error al importar datos. Verifique el formato e integridad del archivo.";
+                setError(errorMessage);
+                reject(new Error(errorMessage));
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        reader.onerror = () => {
+            const errorMessage = "Ocurrió un error al leer el archivo. Puede que esté dañado o tenga una codificación incorrecta.";
+            console.error(errorMessage, reader.error);
+            setError(errorMessage);
+            setLoading(false);
+            reject(new Error(errorMessage));
+        };
+
+        reader.readAsText(file, "UTF-8");
+    });
   };
 
   const clearAllData = async () => {
