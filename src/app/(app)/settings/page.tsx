@@ -29,11 +29,11 @@ export default function SettingsPage() {
   const [importMode, setImportMode] = useState<'merge' | 'replace'>('merge');
 
   const handleExport = async () => {
-    await exportData();
-    if (!error && !loading) { 
-       toast({ title: "Exportación Exitosa", description: "Los datos de tu galería han sido descargados." });
-    } else if(error) {
-       toast({ variant: "destructive", title: "Exportación Fallida", description: error });
+    try {
+      await exportData();
+      toast({ title: "Exportación Exitosa", description: "Los datos de tu galería han sido descargados." });
+    } catch (exportError: any) {
+      toast({ variant: "destructive", title: "Exportación Fallida", description: exportError.message || "No se pudieron exportar los datos." });
     }
   };
 
@@ -44,14 +44,16 @@ export default function SettingsPage() {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      await importData(file, importMode);
-      if (!error && !loading) {
+      try {
+        await importData(file, importMode);
         toast({ title: "Importación Exitosa", description: `Los datos de la galería han sido ${importMode === 'merge' ? 'fusionados' : 'reemplazados'}.` });
-      } else if(error) {
-        toast({ variant: "destructive", title: "Importación Fallida", description: error });
+      } catch (importError: any) {
+        toast({ variant: "destructive", title: "Importación Fallida", description: importError.message || "No se pudo importar el archivo." });
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
       }
-      
-      if(fileInputRef.current) fileInputRef.current.value = "";
     }
   };
   
@@ -80,7 +82,7 @@ export default function SettingsPage() {
       {error && (
         <div className="mb-4 p-4 bg-destructive/10 text-destructive border border-destructive rounded-md flex items-center">
           <AlertTriangle className="h-5 w-5 mr-2"/> 
-          <p>{error === "Failed to import data. Check file format and integrity." ? "Error al importar datos. Verifica el formato e integridad del archivo." : error === "Failed to read file." ? "Error al leer el archivo." : error}</p>
+          <p>{error}</p>
         </div>
       )}
 

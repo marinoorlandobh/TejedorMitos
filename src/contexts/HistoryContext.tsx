@@ -241,27 +241,36 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const creationsData = await db.creations.toArray();
       const imageData = await db.imageDataStore.toArray();
       const textOutputData = await db.textOutputStore.toArray();
-
-      // Stream-like construction of the JSON to avoid "Invalid string length" errors on very large galleries.
+  
       const blobParts: (string | Blob)[] = [];
-      
-      const stringifyArrayInChunks = (array: any[]) => {
-          if (array.length === 0) return;
-          blobParts.push(JSON.stringify(array[0]));
-          for (let i = 1; i < array.length; i++) {
-              blobParts.push(',');
-              blobParts.push(JSON.stringify(array[i]));
-          }
-      };
-
-      blobParts.push('{"creations":[');
-      stringifyArrayInChunks(creationsData);
-      blobParts.push('],"imageDataStore":[');
-      stringifyArrayInChunks(imageData);
-      blobParts.push('],"textOutputStore":[');
-      stringifyArrayInChunks(textOutputData);
-      blobParts.push(']}');
-      
+      blobParts.push('{');
+  
+      // Creations
+      blobParts.push('"creations":[');
+      creationsData.forEach((item, index) => {
+        blobParts.push(JSON.stringify(item));
+        if (index < creationsData.length - 1) blobParts.push(',');
+      });
+      blobParts.push('],');
+  
+      // Image Data
+      blobParts.push('"imageDataStore":[');
+      imageData.forEach((item, index) => {
+        blobParts.push(JSON.stringify(item));
+        if (index < imageData.length - 1) blobParts.push(',');
+      });
+      blobParts.push('],');
+  
+      // Text Output Data
+      blobParts.push('"textOutputStore":[');
+      textOutputData.forEach((item, index) => {
+        blobParts.push(JSON.stringify(item));
+        if (index < textOutputData.length - 1) blobParts.push(',');
+      });
+      blobParts.push(']');
+  
+      blobParts.push('}');
+  
       const blob = new Blob(blobParts, { type: 'application/json' });
       
       const url = URL.createObjectURL(blob);
@@ -277,44 +286,56 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error("Failed to export data:", e);
       setError(e.message || "Failed to export data.");
       setLoading(false);
+      throw e; // Re-throw error to be caught by the caller
     }
   };
-
-  const importData = async (file: File, mode: 'merge' | 'replace') => {
+  
+  const importData = (file: File, mode: 'merge' | 'replace'): Promise<void> => {
     setLoading(true);
     setError(null);
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const jsonStr = event.target?.result as string;
-        const importObj = JSON.parse(jsonStr);
-        
-        if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
-          throw new Error("Invalid backup file format.");
-        }
-
-        await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
-          if (mode === 'replace') {
-            await db.creations.clear();
-            await db.imageDataStore.clear();
-            await db.textOutputStore.clear();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const jsonStr = event.target?.result as string;
+          if (!jsonStr) {
+            throw new Error("El archivo está vacío o no se pudo leer.");
           }
-          await db.creations.bulkAdd(importObj.creations as Creation[]);
-          await db.imageDataStore.bulkAdd(importObj.imageDataStore as ImageDataModel[]);
-          await db.textOutputStore.bulkAdd(importObj.textOutputStore as TextOutputModel[]);
-        });
+          const importObj = JSON.parse(jsonStr);
+          
+          if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
+            throw new Error("Formato de archivo de respaldo no válido.");
+          }
+  
+          await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
+            if (mode === 'replace') {
+              await db.creations.clear();
+              await db.imageDataStore.clear();
+              await db.textOutputStore.clear();
+            }
+            // Use bulkPut for safety against duplicate keys on merge (idempotent add/update)
+            await db.creations.bulkPut(importObj.creations as Creation[]);
+            await db.imageDataStore.bulkPut(importObj.imageDataStore as ImageDataModel[]);
+            await db.textOutputStore.bulkPut(importObj.textOutputStore as TextOutputModel[]);
+          });
+          setLoading(false);
+          resolve();
+        } catch (e: any) {
+          console.error("Failed to import data:", e);
+          const errorMessage = e.message || "Error al importar datos. Verifique el formato e integridad del archivo.";
+          setError(errorMessage);
+          setLoading(false);
+          reject(new Error(errorMessage));
+        }
+      };
+      reader.onerror = (error) => {
+        const errorMessage = "Error al leer el archivo.";
+        setError(errorMessage);
         setLoading(false);
-      } catch (e: any) {
-        console.error("Failed to import data:", e);
-        setError(e.message || "Failed to import data. Check file format and integrity.");
-        setLoading(false);
-      }
-    };
-    reader.onerror = () => {
-      setError("Failed to read file.");
-      setLoading(false);
-    };
-    reader.readAsText(file);
+        reject(new Error(errorMessage));
+      };
+      reader.readAsText(file);
+    });
   };
 
   const clearAllData = async () => {
