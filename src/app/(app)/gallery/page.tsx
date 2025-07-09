@@ -668,5 +668,7 @@ const ImageItem: React.FC<{ imageId: string, alt: string }> = ({ imageId, alt })
     return <div className="w-full h-full flex items-center justify-center bg-muted/50 text-xs text-muted-foreground p-2">Imagen no encontrada</div>;
   }
 
-  return <Image src={imageUrl} alt={alt} fill className="object-cover transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;
+  return <Image src={imageUrl} alt={alt} fill className="object-contain transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;
 };
+
+    
