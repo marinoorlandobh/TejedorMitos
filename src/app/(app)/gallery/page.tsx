@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
-import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info, Columns, Rows, Wand2 } from 'lucide-react';
+import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info, Columns, Rows, Wand2, ZoomIn } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -74,6 +74,7 @@ export default function GalleryPage() {
   const [itemsPerPage, setItemsPerPage] = useState(4);
   const [currentPage, setCurrentPage] = useState(1);
   const [numColumns, setNumColumns] = useState<number>(4);
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   const filteredAndSortedCreations = useMemo(() => {
     let filtered = creations.filter(creation =>
@@ -470,7 +471,7 @@ export default function GalleryPage() {
                 ) : (
                   <DialogTitle className="text-3xl flex items-center">
                     {selectedCreation.name}
-                    <Button variant="ghost" size="icon" onClick={() => handleEditName()} className="ml-2">
+                    <Button variant="ghost" size="icon" onClick={()={() => handleEditName()} className="ml-2">
                       <Edit3 className="h-5 w-5" />
                     </Button>
                   </DialogTitle>
@@ -484,14 +485,30 @@ export default function GalleryPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg text-primary">Imagen</h3>
                   {selectedCreation.imageData?.imageDataUri ? (
-                    <Image src={selectedCreation.imageData.imageDataUri} alt={selectedCreation.name} width={400} height={400} className="rounded-lg shadow-md object-contain w-full" data-ai-hint="mythological art" />
+                    <div
+                      className="relative group/zoom cursor-zoom-in"
+                      onClick={() => setZoomedImageUrl(selectedCreation.imageData!.imageDataUri)}
+                    >
+                      <Image src={selectedCreation.imageData.imageDataUri} alt={selectedCreation.name} width={400} height={400} className="rounded-lg shadow-md object-contain w-full" data-ai-hint="mythological art" />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/zoom:opacity-100 transition-opacity duration-300 rounded-lg">
+                        <ZoomIn className="h-12 w-12 text-white" />
+                      </div>
+                    </div>
                   ) : (
                     <p className="text-muted-foreground">No hay imagen asociada.</p>
                   )}
                   {selectedCreation.type === 'reimagined' && selectedCreation.originalImageData?.imageDataUri && (
                     <>
                       <h3 className="font-semibold text-lg text-primary mt-4">Imagen Original</h3>
-                      <Image src={selectedCreation.originalImageData.imageDataUri} alt={`Original para ${selectedCreation.name}`} width={200} height={200} className="rounded-lg shadow-md object-contain w-full" data-ai-hint="source image" />
+                       <div
+                        className="relative group/zoom cursor-zoom-in"
+                        onClick={() => setZoomedImageUrl(selectedCreation.originalImageData!.imageDataUri)}
+                      >
+                        <Image src={selectedCreation.originalImageData.imageDataUri} alt={`Original para ${selectedCreation.name}`} width={200} height={200} className="rounded-lg shadow-md object-contain w-full" data-ai-hint="source image" />
+                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/zoom:opacity-100 transition-opacity duration-300 rounded-lg">
+                          <ZoomIn className="h-12 w-12 text-white" />
+                        </div>
+                      </div>
                     </>
                   )}
                 </div>
@@ -627,6 +644,14 @@ export default function GalleryPage() {
             </DialogContent>
           </Dialog>
         )}
+
+        {zoomedImageUrl && (
+          <Dialog open={!!zoomedImageUrl} onOpenChange={(open) => !open && setZoomedImageUrl(null)}>
+            <DialogContent className="p-0 border-0 max-w-5xl bg-transparent shadow-none w-auto h-auto">
+              <Image src={zoomedImageUrl} alt="Imagen ampliada" width={1200} height={1200} className="rounded-lg object-contain w-auto h-auto max-w-[90vw] max-h-[90vh]" />
+            </DialogContent>
+          </Dialog>
+        )}
         
         {promptToCreateFrom && (
             <CreateFromPromptDialog
@@ -671,4 +696,5 @@ const ImageItem: React.FC<{ imageId: string, alt: string }> = ({ imageId, alt })
   return <Image src={imageUrl} alt={alt} fill className="object-contain transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;
 };
 
+    
     
