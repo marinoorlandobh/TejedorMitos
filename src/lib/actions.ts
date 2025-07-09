@@ -8,6 +8,7 @@ import { reimagineUploadedImage as reimagineUploadedImageFlow, type ReimagineUpl
 import { extractMythologiesFromText as extractMythologiesFlow, type ExtractMythologiesInput, type ExtractMythologiesOutput } from "@/ai/flows/extract-mythologies-flow";
 import { extractDetailsFromPrompt as extractDetailsFromPromptFlow, type ExtractDetailsInput, type ExtractDetailsOutput } from "@/ai/flows/extract-details-from-prompt";
 import { fixImagePrompt as fixImagePromptFlow, type FixImagePromptInput, type FixImagePromptOutput } from "@/ai/flows/fix-image-prompt";
+import { translateText as translateTextFlow, type TranslateTextInput, type TranslateTextOutput } from "@/ai/flows/translate-text-flow";
 
 
 export async function generateMythImageAction(input: GenerateMythImageInput): Promise<GenerateMythImageOutput> {
@@ -87,5 +88,18 @@ export async function fixImagePromptAction(input: FixImagePromptInput): Promise<
     }
     // Propagate the specific error message from the flow
     throw new Error(error.message || "Failed to fix prompt with AI. Please try again.");
+  }
+}
+
+export async function translateTextAction(input: TranslateTextInput): Promise<TranslateTextOutput> {
+  try {
+    const result = await translateTextFlow(input);
+    return result;
+  } catch (error: any) {
+    console.error("Error in translateTextAction:", error);
+    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
+      throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+    }
+    throw new Error(error.message || "No se pudo traducir el texto. Por favor, inténtalo de nuevo.");
   }
 }

@@ -7,3 +7,4 @@ import '@/ai/flows/generate-myth-image.ts';
 import '@/ai/flows/extract-mythologies-flow.ts';
 import '@/ai/flows/extract-details-from-prompt.ts';
 import '@/ai/flows/fix-image-prompt.ts';
+import '@/ai/flows/translate-text-flow.ts';

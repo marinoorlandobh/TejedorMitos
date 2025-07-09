@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
-import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info, Wand2, ZoomIn, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import { GalleryVerticalEnd, Search, Trash2, Edit3, Copy, ExternalLink, Loader2, Info, Wand2, ZoomIn, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Languages } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -12,6 +12,7 @@ import type { Creation, ImageDataModel, TextOutputModel, GeneratedParams, Analyz
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -31,8 +32,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLa
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { CreateFromPromptDialog } from '@/components/CreateFromPromptDialog';
-import { MYTHOLOGICAL_CULTURES } from '@/lib/types';
+import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
 import { Label } from '@/components/ui/label';
+import { translateTextAction } from '@/lib/actions';
 
 
 interface CreationFull extends Creation {
@@ -75,6 +77,8 @@ export default function GalleryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [numColumns, setNumColumns] = useState<number>(4);
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatingField, setTranslatingField] = useState<string | null>(null);
 
   const filteredAndSortedCreations = useMemo(() => {
     let filtered = creations.filter(creation =>
@@ -224,6 +228,42 @@ export default function GalleryPage() {
     } finally {
       setUsingPromptId(null);
     }
+  };
+
+  const handleTranslate = async (field: keyof Creation['params'], textToTranslate: string) => {
+    if (!textToTranslate || isTranslating) return;
+    
+    setIsTranslating(true);
+    setTranslatingField(field as string);
+    toast({ title: "Traduciendo...", description: "La IA está traduciendo el texto." });
+
+    try {
+        const result = await translateTextAction({ text: textToTranslate });
+        
+        setEditedParams(prev => {
+            if (!prev) return null;
+            const newParams = { ...prev };
+            (newParams as any)[field] = result.translatedText;
+            return newParams;
+        });
+        toast({ title: "¡Texto Traducido!", description: "El campo ha sido actualizado." });
+
+    } catch (error: any) {
+        console.error("Translation failed:", error);
+        toast({ variant: "destructive", title: "Error de Traducción", description: error.message });
+    } finally {
+        setIsTranslating(false);
+        setTranslatingField(null);
+    }
+  };
+
+  const handleParamChange = (field: keyof Creation['params'], value: string) => {
+    setEditedParams(prev => {
+        if (!prev) return null;
+        const newParams = { ...prev };
+        (newParams as any)[field] = value;
+        return newParams;
+    });
   };
 
   if (historyLoading && creations.length === 0) {
@@ -548,43 +588,93 @@ export default function GalleryPage() {
                   </div>
 
                   {isEditingParams && editedParams ? (
-                    <div className="bg-muted p-3 rounded-md space-y-4">
+                     <div className="bg-muted p-3 rounded-md space-y-4">
                       {(() => {
-                        const p = editedParams as any;
-                        const type = selectedCreation!.type;
-                        const cultureKey = type === 'analyzed' ? 'mythologicalContext' : type === 'reimagined' ? 'contextCulture' : 'culture';
-                        const cultureValue = p[cultureKey];
+                          if (!selectedCreation) return null;
+                          const p = editedParams as any;
+                          const type = selectedCreation.type;
 
-                        const handleCultureChange = (newValue: string) => {
-                          setEditedParams(prev => {
-                            if (!prev) return null;
-                            const newParams = { ...prev };
-                            (newParams as any)[cultureKey] = newValue;
-                            return newParams;
-                          });
-                        };
+                          const renderTextField = (label: string, field: keyof Creation['params'], placeholder: string, withTranslation = false, isTextarea = false) => {
+                              const Comp = isTextarea ? Textarea : Input;
+                              return (
+                                  <div>
+                                      <Label htmlFor={field as string} className="text-sm font-medium text-foreground">{label}</Label>
+                                      <div className="flex items-center gap-2">
+                                          <Comp
+                                              id={field as string}
+                                              value={p[field] || ''}
+                                              onChange={(e) => handleParamChange(field, e.target.value)}
+                                              placeholder={placeholder}
+                                              className="bg-background"
+                                              rows={isTextarea ? 3 : undefined}
+                                          />
+                                          {withTranslation && (
+                                              <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                      <Button
+                                                          type="button"
+                                                          variant="outline"
+                                                          size="icon"
+                                                          onClick={() => handleTranslate(field, p[field])}
+                                                          disabled={isTranslating && translatingField === field}
+                                                      >
+                                                          {isTranslating && translatingField === field ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}
+                                                      </Button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent><p>Traducir a Español</p></TooltipContent>
+                                              </Tooltip>
+                                          )}
+                                      </div>
+                                  </div>
+                              );
+                          };
+                          
+                          const renderSelectField = (label: string, field: keyof Creation['params'], options: readonly string[]) => (
+                              <div>
+                                  <Label htmlFor={field as string} className="text-sm font-medium text-foreground">{label}</Label>
+                                  <Select value={p[field]} onValueChange={(value) => handleParamChange(field, value)}>
+                                      <SelectTrigger id={field as string} className="bg-background"><SelectValue /></SelectTrigger>
+                                      <SelectContent>{options.map(o => (<SelectItem key={o} value={o}>{o}</SelectItem>))}</SelectContent>
+                                  </Select>
+                              </div>
+                          );
 
-                        return (
-                          <div className="space-y-2">
-                            <Label htmlFor="culture-select" className="text-sm font-medium text-foreground">
-                              {type === 'generated' ? 'Cultura' : type === 'reimagined' ? 'Cultura del Contexto' : 'Contexto Mitológico'}
-                            </Label>
-                            <Select value={cultureValue} onValueChange={handleCultureChange}>
-                              <SelectTrigger id="culture-select" className="bg-background">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {MYTHOLOGICAL_CULTURES.map(c => (
-                                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        );
+                          switch (type) {
+                              case 'generated':
+                                  return (
+                                      <div className="space-y-3">
+                                          {renderSelectField('Cultura', 'culture', MYTHOLOGICAL_CULTURES)}
+                                          {renderTextField('Entidad', 'entity', 'Ej: Zeus, Fénix', true)}
+                                          {renderSelectField('Estilo', 'style', IMAGE_STYLES)}
+                                          {renderSelectField('Relación de Aspecto', 'aspectRatio', ASPECT_RATIOS)}
+                                          {renderSelectField('Calidad', 'imageQuality', IMAGE_QUALITIES)}
+                                      </div>
+                                  );
+                              case 'analyzed':
+                                  return (
+                                      <div className="space-y-3">
+                                          {renderSelectField('Contexto Mitológico', 'mythologicalContext', MYTHOLOGICAL_CULTURES)}
+                                          {renderTextField('Entidad/Tema', 'entityTheme', 'Ej: Medusa, Anubis', true)}
+                                          {renderTextField('Detalles Adicionales', 'additionalDetails', 'Cualquier detalle extra...', false, true)}
+                                      </div>
+                                  );
+                              case 'reimagined':
+                                  return (
+                                      <div className="space-y-3">
+                                          {renderSelectField('Cultura del Contexto', 'contextCulture', MYTHOLOGICAL_CULTURES)}
+                                          {renderTextField('Entidad del Contexto', 'contextEntity', 'Ej: Atenea, Esfinge', true)}
+                                          {renderSelectField('Nuevo Estilo Visual', 'visualStyle', IMAGE_STYLES)}
+                                          {renderSelectField('Nueva Relación de Aspecto', 'aspectRatio', ASPECT_RATIOS)}
+                                          {renderSelectField('Nueva Calidad', 'imageQuality', IMAGE_QUALITIES)}
+                                      </div>
+                                  );
+                              default:
+                                  return null;
+                          }
                       })()}
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleCancelEditParams}>Cancelar</Button>
-                        <Button size="sm" onClick={handleSaveParams}>Guardar</Button>
+                          <Button variant="ghost" size="sm" onClick={handleCancelEditParams}>Cancelar</Button>
+                          <Button size="sm" onClick={handleSaveParams}>Guardar</Button>
                       </div>
                     </div>
                   ) : (
