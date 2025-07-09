@@ -290,52 +290,38 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
   
-  const importData = (file: File, mode: 'merge' | 'replace'): Promise<void> => {
+  const importData = async (file: File, mode: 'merge' | 'replace') => {
     setLoading(true);
     setError(null);
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const jsonStr = event.target?.result as string;
-          if (!jsonStr) {
-            throw new Error("El archivo está vacío o no se pudo leer.");
-          }
-          const importObj = JSON.parse(jsonStr);
-          
-          if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
-            throw new Error("Formato de archivo de respaldo no válido.");
-          }
-  
-          await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
-            if (mode === 'replace') {
-              await db.creations.clear();
-              await db.imageDataStore.clear();
-              await db.textOutputStore.clear();
-            }
-            // Use bulkPut for safety against duplicate keys on merge (idempotent add/update)
-            await db.creations.bulkPut(importObj.creations as Creation[]);
-            await db.imageDataStore.bulkPut(importObj.imageDataStore as ImageDataModel[]);
-            await db.textOutputStore.bulkPut(importObj.textOutputStore as TextOutputModel[]);
-          });
-          setLoading(false);
-          resolve();
-        } catch (e: any) {
-          console.error("Failed to import data:", e);
-          const errorMessage = e.message || "Error al importar datos. Verifique el formato e integridad del archivo.";
-          setError(errorMessage);
-          setLoading(false);
-          reject(new Error(errorMessage));
+    try {
+      const jsonStr = await file.text();
+      if (!jsonStr) {
+        throw new Error("El archivo está vacío o no se pudo leer.");
+      }
+      const importObj = JSON.parse(jsonStr);
+
+      if (!importObj.creations || !importObj.imageDataStore || !importObj.textOutputStore) {
+        throw new Error("Formato de archivo de respaldo no válido.");
+      }
+
+      await db.transaction('rw', db.creations, db.imageDataStore, db.textOutputStore, async () => {
+        if (mode === 'replace') {
+          await db.creations.clear();
+          await db.imageDataStore.clear();
+          await db.textOutputStore.clear();
         }
-      };
-      reader.onerror = (error) => {
-        const errorMessage = "Error al leer el archivo.";
-        setError(errorMessage);
-        setLoading(false);
-        reject(new Error(errorMessage));
-      };
-      reader.readAsText(file);
-    });
+        await db.creations.bulkPut(importObj.creations as Creation[]);
+        await db.imageDataStore.bulkPut(importObj.imageDataStore as ImageDataModel[]);
+        await db.textOutputStore.bulkPut(importObj.textOutputStore as TextOutputModel[]);
+      });
+    } catch (e: any) {
+      console.error("Failed to import data:", e);
+      const errorMessage = e.message || "Error al importar datos. Verifique el formato e integridad del archivo.";
+      setError(errorMessage);
+      throw new Error(errorMessage); // Re-throw so the UI can catch it
+    } finally {
+      setLoading(false);
+    }
   };
 
   const clearAllData = async () => {
