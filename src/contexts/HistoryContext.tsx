@@ -299,8 +299,14 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         reader.onload = async (event) => {
             try {
-                const jsonStr = event.target?.result as string;
-                if (!jsonStr || !jsonStr.trim()) {
+                if (!event.target?.result) {
+                    throw new Error("No se pudo leer el contenido del archivo.");
+                }
+                const buffer = event.target.result as ArrayBuffer;
+                const decoder = new TextDecoder('utf-8');
+                const jsonStr = decoder.decode(buffer);
+
+                if (!jsonStr.trim()) {
                     throw new Error("El archivo está vacío o no se pudo decodificar correctamente.");
                 }
 
@@ -341,7 +347,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
             reject(new Error(errorMessage));
         };
 
-        reader.readAsText(file, 'UTF-8');
+        reader.readAsArrayBuffer(file);
     });
   };
 
@@ -376,3 +382,5 @@ export const useHistory = (): HistoryContextType => {
   }
   return context;
 };
+
+    
