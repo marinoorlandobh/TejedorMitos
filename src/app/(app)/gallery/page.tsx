@@ -641,10 +641,12 @@ export default function GalleryPage() {
 
                           switch (type) {
                               case 'generated':
+                                  const genParams = p as GeneratedParams;
                                   return (
                                       <div className="space-y-3">
                                           {renderSelectField('Cultura', 'culture', MYTHOLOGICAL_CULTURES)}
                                           {renderTextField('Entidad', 'entity', 'Ej: Zeus, Fénix', true)}
+                                          {renderTextField('Detalles', 'details', 'Describe la escena...', true, true)}
                                           {renderSelectField('Estilo', 'style', IMAGE_STYLES)}
                                           {renderSelectField('Relación de Aspecto', 'aspectRatio', ASPECT_RATIOS)}
                                           {renderSelectField('Calidad', 'imageQuality', IMAGE_QUALITIES)}
@@ -659,10 +661,16 @@ export default function GalleryPage() {
                                       </div>
                                   );
                               case 'reimagined':
+                                  const reimagineParams = p as ReimaginedParams;
                                   return (
                                       <div className="space-y-3">
+                                          <Label className="text-base font-semibold text-primary/90">Contexto Original</Label>
                                           {renderSelectField('Cultura del Contexto', 'contextCulture', MYTHOLOGICAL_CULTURES)}
                                           {renderTextField('Entidad del Contexto', 'contextEntity', 'Ej: Atenea, Esfinge', true)}
+                                          {renderTextField('Detalles del Contexto', 'contextDetails', 'Describe la escena original...', true, true)}
+                                          <div className="border-t pt-3 mt-3">
+                                            <Label className="text-base font-semibold text-primary">Nuevos Parámetros</Label>
+                                          </div>
                                           {renderSelectField('Nuevo Estilo Visual', 'visualStyle', IMAGE_STYLES)}
                                           {renderSelectField('Nueva Relación de Aspecto', 'aspectRatio', ASPECT_RATIOS)}
                                           {renderSelectField('Nueva Calidad', 'imageQuality', IMAGE_QUALITIES)}
