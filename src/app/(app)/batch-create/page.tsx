@@ -58,6 +58,7 @@ type BatchCreateFormData = z.infer<typeof batchCreateSchema>;
 interface ResultState {
     prompt: string;
     culture: string;
+    provider: 'google-ai' | 'stable-diffusion';
     status: 'pending' | 'processing' | 'success' | 'error';
     imageId?: string;
     name?: string;
@@ -105,6 +106,9 @@ export default function BatchCreatePage() {
                         : r
                 );
                 setResults(correctedResults);
+                 if (correctedResults.some((r: ResultState) => r.status !== 'success')) {
+                    setIsProcessingBatch(true); // Keep batch "active" if there are pending/error items
+                }
             }
             if (cachedPrompts && typeof cachedPrompts === 'string') {
                 form.setValue('prompts', cachedPrompts);
@@ -146,6 +150,7 @@ export default function BatchCreatePage() {
         }
     } else {
         localStorage.removeItem('mythWeaverBatchCreateCache');
+        setIsProcessingBatch(false); // Make sure to re-enable form
     }
   }, [results, promptsValue, toast]);
 
@@ -249,20 +254,26 @@ export default function BatchCreatePage() {
     };
 
 
-  const processSinglePrompt = async (promptToProcess: string, cultureForPrompt: string, index: number, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
-    setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined, prompt: promptToProcess, culture: cultureForPrompt } : r));
+  const processSinglePrompt = async (index: number) => {
+    const resultToProcess = results[index];
+    if (!resultToProcess) return false;
+
+    setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined } : r));
+    
+    const settings = { ...form.getValues(), provider: resultToProcess.provider };
+    const { prompt, culture } = resultToProcess;
 
     try {
         const TIMEOUT_MS = 60000; 
         const result = await withTimeout(
-            runSinglePromptProcessing(promptToProcess, cultureForPrompt, settings),
+            runSinglePromptProcessing(prompt, culture, settings),
             TIMEOUT_MS
         );
         
         setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageId: result.imageId, name: result.name } : r));
         return true;
     } catch (error: any) {
-        console.error(`Error processing prompt: ${promptToProcess}`, error);
+        console.error(`Error processing prompt: ${prompt}`, error);
         const errorMessage = error.message || "Error desconocido";
         setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: errorMessage } : r));
         return false;
@@ -303,21 +314,28 @@ export default function BatchCreatePage() {
 
     const tasks = promptLines.map(line => getTaskForLine(line, data.culture));
 
-    setResults(tasks.map(t => ({ prompt: t.prompt, culture: t.culture, status: 'pending' })));
+    setResults(tasks.map(t => ({ 
+        prompt: t.prompt, 
+        culture: t.culture, 
+        provider: data.provider, 
+        status: 'pending' 
+    })));
     setProgress({ current: 0, total: tasks.length });
     
-    const { prompts, culture: defaultCulture, ...restOfSettings } = data;
-
     for (const [index, task] of tasks.entries()) {
         if (signal.aborted) {
             toast({ title: "Proceso Detenido", description: "La generación en lote fue detenida por el usuario." });
             break; 
         }
-        await processSinglePrompt(task.prompt, task.culture, index, restOfSettings);
+        await processSinglePrompt(index);
         setProgress(prev => ({ ...prev, current: index + 1 }));
     }
 
-    setIsProcessingBatch(false);
+    const finalResults = results;
+    if (!finalResults.some(r => r.status !== 'success')) {
+        setIsProcessingBatch(false);
+    }
+    
     abortControllerRef.current = null; 
 
     if (!signal.aborted) {
@@ -332,12 +350,7 @@ export default function BatchCreatePage() {
   };
 
   const handleRetry = (index: number) => {
-    const result = results[index];
-    if (result) {
-      const { prompt, culture } = result;
-      const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
-      processSinglePrompt(prompt, culture, index, restOfSettings);
-    }
+    processSinglePrompt(index);
   };
 
   const handleEdit = (index: number) => {
@@ -360,8 +373,12 @@ export default function BatchCreatePage() {
   const handleSaveAndRetry = () => {
     if (editingIndex !== null) {
       const task = getTaskForLine(editedPromptText, form.getValues().culture);
-      const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
-      processSinglePrompt(task.prompt, task.culture, editingIndex, restOfSettings);
+      
+      setResults(prev => prev.map((r, idx) => idx === editingIndex ? { ...r, prompt: task.prompt, culture: task.culture } : r));
+      
+      // We need to use a timeout to allow the state to update before processing
+      setTimeout(() => processSinglePrompt(editingIndex), 0);
+      
       handleCancelEdit();
     }
   };
@@ -373,15 +390,16 @@ export default function BatchCreatePage() {
         setIsFixingIndex(null);
         return;
     }
-    const { prompt: originalPrompt, culture } = result;
+    const { prompt: originalPrompt } = result;
 
     try {
       toast({ title: "La IA está trabajando...", description: "Revisando y corrigiendo el prompt." });
       const { fixedPrompt } = await fixImagePromptAction({ promptText: originalPrompt });
       toast({ title: "¡Prompt Corregido!", description: "Reintentando la generación con el nuevo prompt." });
       
-      const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
-      await processSinglePrompt(fixedPrompt, culture, index, restOfSettings);
+      setResults(prev => prev.map((r, idx) => idx === index ? { ...r, prompt: fixedPrompt } : r));
+      
+      setTimeout(() => processSinglePrompt(index), 0);
 
     } catch (error: any) {
         console.error("Error fixing prompt with AI:", error);
@@ -401,7 +419,11 @@ export default function BatchCreatePage() {
   };
   
   const handleClearSuccessful = () => {
-    setResults(prev => prev.filter(r => r.status !== 'success'));
+    const newResults = results.filter(r => r.status !== 'success');
+    setResults(newResults);
+    if (newResults.length === 0) {
+        setIsProcessingBatch(false);
+    }
     toast({ title: "Exitosos Limpiados", description: "Se han quitado los prompts generados correctamente de la lista." });
   };
   
@@ -411,19 +433,24 @@ export default function BatchCreatePage() {
     const signal = abortControllerRef.current.signal;
     toast({ title: "Reintentando el lote...", description: "Se procesarán todos los elementos pendientes o con error." });
 
-    const { prompts, culture: defaultCulture, ...restOfSettings } = form.getValues();
-    
-    for (const [index, result] of results.entries()) {
+    const itemsToRetry = results.map((_, index) => index).filter(index => {
+        const result = results[index];
+        return result.status === 'pending' || result.status === 'error';
+    });
+
+    for (const index of itemsToRetry) {
         if (signal.aborted) {
             toast({ title: "Proceso Detenido", description: "La generación en lote fue detenida." });
             break;
         }
-        if (result.status === 'pending' || result.status === 'error') {
-            await processSinglePrompt(result.prompt, result.culture, index, restOfSettings);
-        }
+        await processSinglePrompt(index);
+    }
+    
+    const finalResults = results;
+    if (!finalResults.some(r => r.status !== 'success')) {
+        setIsProcessingBatch(false);
     }
 
-    setIsProcessingBatch(false);
     abortControllerRef.current = null;
     if (!signal.aborted) {
       toast({ title: "Proceso de reintento terminado", description: "Revisa los resultados actualizados." });
@@ -433,6 +460,7 @@ export default function BatchCreatePage() {
   const hasFailedOrPendingItems = results.some(r => r.status === 'error' || r.status === 'pending');
   const hasSuccessfulItems = results.some(r => r.status === 'success');
   const successfulCount = results.filter(r => r.status === 'success').length;
+  const isBatchActive = results.length > 0;
 
   return (
     <ScrollArea className="h-full">
@@ -463,7 +491,7 @@ export default function BatchCreatePage() {
                       <FormItem>
                         <FormLabel>Lista de Prompts</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Pega tus prompts aquí, uno por línea..." {...field} rows={8} />
+                          <Textarea placeholder="Pega tus prompts aquí, uno por línea..." {...field} rows={8} disabled={isBatchActive} />
                         </FormControl>
                          <FormDescriptionComponent>
                             Usa el formato `cultura;prompt` por línea, o copia y pega directamente desde una hoja de cálculo (columnas: Cultura, Prompt). El encabezado se ignorará automáticamente.
@@ -478,7 +506,7 @@ export default function BatchCreatePage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Cultura Mitológica (por defecto)</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isBatchActive}>
                           <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                           <SelectContent>{MYTHOLOGICAL_CULTURES.map(c => (<SelectItem key={c} value={c}>{c}</SelectItem>))}</SelectContent>
                         </Select>
@@ -493,7 +521,7 @@ export default function BatchCreatePage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Estilo</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isBatchActive}>
                             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>{IMAGE_STYLES.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
                           </Select>
@@ -507,7 +535,7 @@ export default function BatchCreatePage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Aspecto</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isBatchActive}>
                             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>{ASPECT_RATIOS.map(r => (<SelectItem key={r} value={r}>{r}</SelectItem>))}</SelectContent>
                           </Select>
@@ -521,7 +549,7 @@ export default function BatchCreatePage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Calidad</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isBatchActive}>
                             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>{IMAGE_QUALITIES.map(q => (<SelectItem key={q} value={q}>{q}</SelectItem>))}</SelectContent>
                           </Select>
@@ -536,7 +564,7 @@ export default function BatchCreatePage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Motor de Generación</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isBatchActive}>
                             <FormControl>
                               <SelectTrigger><SelectValue placeholder="Selecciona un motor" /></SelectTrigger>
                             </FormControl>
@@ -551,16 +579,10 @@ export default function BatchCreatePage() {
                       )}
                     />
                   <div className="flex w-full items-center gap-2">
-                    <Button type="submit" disabled={isProcessingBatch} className="flex-grow">
-                      {isProcessingBatch ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                      {isProcessingBatch ? `Generando ${progress.current} de ${progress.total}...` : 'Generar Lote'}
+                    <Button type="submit" disabled={isBatchActive} className="flex-grow">
+                      <Sparkles className="mr-2 h-4 w-4" />
+                       Generar Lote
                     </Button>
-                    {isProcessingBatch && (
-                      <Button variant="destructive" onClick={handleStopProcessing} type="button" className="shrink-0">
-                        <PauseCircle className="mr-2 h-4 w-4" />
-                        Detener
-                      </Button>
-                    )}
                   </div>
                 </form>
               </Form>
@@ -593,6 +615,12 @@ export default function BatchCreatePage() {
                         <CardDescription>El estado de cada creación aparecerá aquí.</CardDescription>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap justify-end">
+                        {isProcessingBatch && (
+                          <Button variant="destructive" onClick={handleStopProcessing} type="button" size="sm">
+                            <PauseCircle className="mr-2 h-4 w-4" />
+                            Detener
+                          </Button>
+                        )}
                         {hasSuccessfulItems && !isProcessingBatch && (
                             <Button variant="outline" size="sm" onClick={handleClearSuccessful}>
                                 <Eraser className="mr-2 h-4 w-4" />
@@ -602,7 +630,7 @@ export default function BatchCreatePage() {
                         {hasFailedOrPendingItems && !isProcessingBatch && (
                             <Button variant="outline" size="sm" onClick={handleRetryAll}>
                                 <RefreshCw className="mr-2 h-4 w-4" />
-                                Reintentar Todo
+                                Reintentar Fallidos
                             </Button>
                         )}
                         {results.length > 0 && !isProcessingBatch && (
@@ -643,6 +671,9 @@ export default function BatchCreatePage() {
                                     ) : (
                                       <p className="text-sm font-medium line-clamp-3">{result.prompt}</p>
                                     )}
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                        <span>{result.culture} &bull; {IMAGE_PROVIDERS.find(p => p.id === result.provider)?.name || result.provider}</span>
+                                    </div>
                                     {result.status === 'success' && result.name && <p className="text-xs text-primary font-semibold">Generado: {result.name}</p>}
                                     {result.status === 'error' && result.error && <p className="text-xs text-destructive">{result.error}</p>}
                                 </div>
@@ -706,6 +737,3 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
 
   return <Image src={imageUrl} alt={`Generated: ${name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />;
 };
-
-    
-
