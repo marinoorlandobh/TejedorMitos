@@ -16,10 +16,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { reimagineUploadedImageAction, reimagineImageWithStableDiffusionClientAction } from '@/lib/actions';
+import { reimagineUploadedImageAction } from '@/lib/actions';
 import type { ReimaginedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { mapAspectRatioToDimensions, mapQualityToSteps } from '@/lib/utils';
 
 const reimagineImageSchema = z.object({
   name: z.string().min(1, "El nombre de la creación es obligatorio.").max(100),
@@ -85,6 +86,66 @@ export default function ReimagineImagePage() {
     }
   };
 
+  async function reimagineWithStableDiffusion(originalImage: string, params: ReimaginedParams) {
+    const apiUrl = 'http://127.0.0.1:7860';
+    
+    // We need to derive a prompt using the Google AI flow first, even for SD
+    const { derivedPrompt } = await reimagineUploadedImageAction({
+        originalImage: originalImage,
+        ...params
+    });
+
+    const dimensions = mapAspectRatioToDimensions(params.aspectRatio);
+    const steps = mapQualityToSteps(params.imageQuality);
+
+    // For img2img, the original image must not include the 'data:image/png;base64,' prefix.
+    const base64Image = originalImage.split(',')[1];
+    
+    const payload = {
+        init_images: [base64Image],
+        prompt: derivedPrompt,
+        negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
+        seed: -1,
+        sampler_name: "DPM++ 2M Karras",
+        batch_size: 1,
+        n_iter: 1,
+        steps: steps,
+        cfg_scale: 7,
+        width: dimensions.width,
+        height: dimensions.height,
+        restore_faces: true,
+        denoising_strength: 0.75, // Important for img2img
+    };
+
+    try {
+        const response = await fetch(`${apiUrl}/sdapi/v1/img2img`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error de la API de Stable Diffusion (img2img): ${response.status} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.images || result.images.length === 0) {
+            throw new Error("La API de Stable Diffusion (img2img) no devolvió ninguna imagen.");
+        }
+
+        return { reimaginedImage: `data:image/png;base64,${result.images[0]}`, derivedPrompt };
+    } catch (e: any) {
+        if (e.message.includes('fetch failed')) {
+            throw new Error(`No se pudo conectar a la API de Stable Diffusion en ${apiUrl}. ¿Está el servidor en ejecución con el argumento --api?`);
+        }
+        throw e;
+    }
+  }
+
+
   async function onSubmit(data: ReimagineImageFormData) {
     setIsLoading(true);
     setReimaginedImage(null);
@@ -121,10 +182,7 @@ export default function ReimagineImagePage() {
       let result;
       
       if (data.provider === 'stable-diffusion') {
-        result = await reimagineImageWithStableDiffusionClientAction({
-          originalImage: originalImageDataUri,
-          ...aiInputParams,
-        });
+        result = await reimagineWithStableDiffusion(originalImageDataUri, aiInputParams);
       } else {
         result = await reimagineUploadedImageAction({
           originalImage: originalImageDataUri,

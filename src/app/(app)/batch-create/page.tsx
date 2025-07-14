@@ -15,12 +15,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDescriptionComponent } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction, generateImageWithStableDiffusionClientAction } from '@/lib/actions';
+import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { mapAspectRatioToDimensions, mapQualityToSteps } from '@/lib/utils';
 
 // Helper function to add a timeout to a promise
 const withTimeout = <T,>(promise: Promise<T>, ms: number, timeoutError = new Error(`La operación tardó más de ${ms / 1000} segundos y fue cancelada.`)): Promise<T> => {
@@ -169,6 +170,53 @@ export default function BatchCreatePage() {
     return lines;
   };
 
+  async function generateWithStableDiffusion(prompt: string, aspectRatio: string, imageQuality: string) {
+    const apiUrl = 'http://127.0.0.1:7860';
+    const dimensions = mapAspectRatioToDimensions(aspectRatio);
+    const steps = mapQualityToSteps(imageQuality);
+
+    const payload = {
+        prompt,
+        negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
+        seed: -1,
+        sampler_name: "DPM++ 2M Karras",
+        batch_size: 1,
+        n_iter: 1,
+        steps: steps,
+        cfg_scale: 7,
+        width: dimensions.width,
+        height: dimensions.height,
+        restore_faces: true,
+    };
+
+    try {
+        const response = await fetch(`${apiUrl}/sdapi/v1/txt2img`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error de la API de Stable Diffusion: ${response.status} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.images || result.images.length === 0) {
+            throw new Error("La API de Stable Diffusion no devolvió ninguna imagen.");
+        }
+
+        return { imageUrl: `data:image/png;base64,${result.images[0]}`, prompt };
+    } catch (e: any) {
+        if (e.message.includes('fetch failed')) {
+            throw new Error(`No se pudo conectar a la API de Stable Diffusion en ${apiUrl}. ¿Está el servidor en ejecución con el argumento --api?`);
+        }
+        throw e;
+    }
+  }
+
     const runSinglePromptProcessing = async (promptToProcess: string, cultureForPrompt: string, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
         const { creationName, entity } = await extractDetailsFromPromptAction({ promptText: promptToProcess });
         
@@ -186,12 +234,7 @@ export default function BatchCreatePage() {
         const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${entity}' from ${cultureForPrompt} mythology. Key scene details include: ${promptToProcess}. The desired image quality is ${aiInputParams.imageQuality}.`;
 
         if (settings.provider === 'stable-diffusion') {
-            const sdResult = await generateImageWithStableDiffusionClientAction({
-                prompt: fullPrompt,
-                aspectRatio: aiInputParams.aspectRatio,
-                imageQuality: aiInputParams.imageQuality
-            });
-            imageResult = { ...sdResult, prompt: fullPrompt };
+            imageResult = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality);
         } else {
             imageResult = await generateMythImageAction(aiInputParams);
         }
