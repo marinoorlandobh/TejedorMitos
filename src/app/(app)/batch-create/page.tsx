@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDescriptionComponent } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction } from '@/lib/actions';
+import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction, extractBatchDetailsFromPromptsAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -349,13 +349,13 @@ export default function BatchCreatePage() {
 
     if (data.provider === 'google-ai') {
         try {
-            const extractedDetails = await Promise.all(
-                initialResults.map(r => extractDetailsFromPromptAction({ promptText: r.prompt }))
-            );
+            const { details } = await extractBatchDetailsFromPromptsAction({ 
+                prompts: initialResults.map(r => r.prompt) 
+            });
             initialResults = initialResults.map((r, i) => ({
                 ...r,
-                name: extractedDetails[i].creationName,
-                entity: extractedDetails[i].entity
+                name: details[i].creationName,
+                entity: details[i].entity
             }));
             setResults(initialResults);
             toast({ title: "Nombres Extraídos", description: "Comenzando la generación de imágenes." });

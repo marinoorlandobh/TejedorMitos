@@ -6,6 +6,7 @@ import { analyzeUploadedImage as analyzeUploadedImageFlow, type AnalyzeUploadedI
 import { reimagineUploadedImage as reimagineUploadedImageFlow, type ReimagineUploadedImageInput, type ReimagineUploadedImageOutput } from "@/ai/flows/reimagine-uploaded-image";
 import { extractMythologiesFromText as extractMythologiesFlow, type ExtractMythologiesInput, type ExtractMythologiesOutput } from "@/ai/flows/extract-mythologies-flow";
 import { extractDetailsFromPrompt as extractDetailsFromPromptFlow, type ExtractDetailsInput, type ExtractDetailsOutput } from "@/ai/flows/extract-details-from-prompt";
+import { extractBatchDetailsFromPrompts as extractBatchDetailsFromPromptsFlow, type ExtractBatchDetailsInput, type ExtractBatchDetailsOutput } from "@/ai/flows/extract-batch-details-flow";
 import { fixImagePrompt as fixImagePromptFlow, type FixImagePromptInput, type FixImagePromptOutput } from "@/ai/flows/fix-image-prompt";
 import { translateText as translateTextFlow, type TranslateTextInput, type TranslateTextOutput } from "@/ai/flows/translate-text-flow";
 import type { GeneratedParams } from "./types";
@@ -93,6 +94,9 @@ export async function extractDetailsFromPromptAction(input: ExtractDetailsInput)
   while (retries < maxRetries) {
     try {
       const result = await extractDetailsFromPromptFlow(input);
+      if (!result) {
+        throw new Error("La IA no pudo extraer un nombre y entidad válidos del prompt. Puede que sea demasiado ambiguo.");
+      }
       return result;
     } catch (error: any) {
       const isQuotaError = error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'));
@@ -115,6 +119,19 @@ export async function extractDetailsFromPromptAction(input: ExtractDetailsInput)
 
   // This part should not be reachable if logic is correct, but as a fallback:
   throw new Error("No se pudieron extraer los detalles del prompt tras varios intentos.");
+}
+
+export async function extractBatchDetailsFromPromptsAction(input: ExtractBatchDetailsInput): Promise<ExtractBatchDetailsOutput> {
+  try {
+    const result = await extractBatchDetailsFromPromptsFlow(input);
+    return result;
+  } catch (error: any) {
+    console.error("Error in extractBatchDetailsFromPromptsAction:", error);
+    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
+        throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+    }
+    throw new Error(error.message || "Failed to extract details for the batch. Please try again.");
+  }
 }
 
 
