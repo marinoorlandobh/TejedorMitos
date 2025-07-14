@@ -332,14 +332,72 @@ export default function GalleryPage() {
     );
   }
 
-  const getDescriptiveDetails = (creation: CreationFull): string | null => {
-    if (!creation) return null;
-    const { type, params } = creation;
+  const getDescriptiveDetails = (params: Creation['params'] | null, type: Creation['type']): string | null => {
+    if (!params) return null;
     if (type === 'generated') return (params as GeneratedParams).details;
     if (type === 'reimagined') return (params as ReimaginedParams).contextDetails;
     if (type === 'analyzed') return (params as AnalyzedParams).additionalDetails || null;
     return null;
   };
+  
+  const getDescriptiveDetailsFieldKey = (type: Creation['type']): keyof Creation['params'] | null => {
+      if (type === 'generated') return 'details';
+      if (type === 'reimagined') return 'contextDetails';
+      if (type === 'analyzed') return 'additionalDetails';
+      return null;
+  };
+
+  const renderTextField = (label: string, field: keyof Creation['params'], placeholder: string, withTranslation = false, isTextarea = false) => {
+    if (!editedParams) return null;
+    const Comp = isTextarea ? Textarea : Input;
+    const p = editedParams as any;
+    return (
+        <div>
+            <Label htmlFor={field as string} className="text-sm font-medium text-foreground">{label}</Label>
+            <div className="flex items-center gap-2">
+                <Comp
+                    id={field as string}
+                    value={p[field] || ''}
+                    onChange={(e) => handleParamChange(field, e.target.value)}
+                    placeholder={placeholder}
+                    className="bg-background"
+                    rows={isTextarea ? 3 : undefined}
+                />
+                {withTranslation && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleTranslate(field, p[field])}
+                                disabled={isTranslating && translatingField === field}
+                            >
+                                {isTranslating && translatingField === field ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Traducir a Español</p></TooltipContent>
+                    </Tooltip>
+                )}
+            </div>
+        </div>
+    );
+  };
+  
+  const renderSelectField = (label: string, field: keyof Creation['params'], options: readonly string[]) => {
+      if (!editedParams) return null;
+      const p = editedParams as any;
+      return (
+          <div>
+              <Label htmlFor={field as string} className="text-sm font-medium text-foreground">{label}</Label>
+              <Select value={p[field]} onValueChange={(value) => handleParamChange(field, value)}>
+                  <SelectTrigger id={field as string} className="bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>{options.map(o => (<SelectItem key={o} value={o}>{o}</SelectItem>))}</SelectContent>
+              </Select>
+          </div>
+      );
+  };
+
 
   return (
     <ScrollArea className="h-full">
@@ -630,16 +688,49 @@ export default function GalleryPage() {
                   )}
 
                   {(() => {
-                    const details = getDescriptiveDetails(selectedCreation);
-                    if (details) {
-                      return (
-                        <div className="space-y-1">
-                          <h4 className="font-semibold text-md text-primary/90">Detalles Descriptivos</h4>
-                          <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md break-words">
-                            {details}
-                          </p>
-                        </div>
-                      );
+                    const descriptiveDetailsText = getDescriptiveDetails(isEditingParams ? editedParams : selectedCreation.params, selectedCreation.type);
+                    const descriptiveDetailsFieldKey = getDescriptiveDetailsFieldKey(selectedCreation.type);
+                    if (descriptiveDetailsText !== null || (isEditingParams && descriptiveDetailsFieldKey)) {
+                        return (
+                            <div className="space-y-1">
+                                {isEditingParams && editedParams && descriptiveDetailsFieldKey ? (
+                                     <div>
+                                        <Label htmlFor={descriptiveDetailsFieldKey} className="text-md font-semibold text-primary/90">Detalles Descriptivos</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Textarea
+                                                id={descriptiveDetailsFieldKey}
+                                                value={(editedParams as any)[descriptiveDetailsFieldKey] || ''}
+                                                onChange={(e) => handleParamChange(descriptiveDetailsFieldKey, e.target.value)}
+                                                placeholder="Describe la escena..."
+                                                className="bg-background mt-1"
+                                                rows={4}
+                                            />
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="icon"
+                                                        onClick={() => handleTranslate(descriptiveDetailsFieldKey, (editedParams as any)[descriptiveDetailsFieldKey])}
+                                                        disabled={isTranslating && translatingField === descriptiveDetailsFieldKey}
+                                                    >
+                                                        {isTranslating && translatingField === descriptiveDetailsFieldKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent><p>Traducir a Español</p></TooltipContent>
+                                            </Tooltip>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                     <h4 className="font-semibold text-md text-primary/90">Detalles Descriptivos</h4>
+                                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md break-words">
+                                        {descriptiveDetailsText}
+                                      </p>
+                                    </>
+                                )}
+                            </div>
+                        );
                     }
                     return null;
                   })()}
@@ -673,53 +764,7 @@ export default function GalleryPage() {
                      <div className="bg-muted p-3 rounded-md space-y-4">
                       {(() => {
                           if (!selectedCreation) return null;
-                          const p = editedParams as any;
                           const type = selectedCreation.type;
-
-                          const renderTextField = (label: string, field: keyof Creation['params'], placeholder: string, withTranslation = false, isTextarea = false) => {
-                              const Comp = isTextarea ? Textarea : Input;
-                              return (
-                                  <div>
-                                      <Label htmlFor={field as string} className="text-sm font-medium text-foreground">{label}</Label>
-                                      <div className="flex items-center gap-2">
-                                          <Comp
-                                              id={field as string}
-                                              value={p[field] || ''}
-                                              onChange={(e) => handleParamChange(field, e.target.value)}
-                                              placeholder={placeholder}
-                                              className="bg-background"
-                                              rows={isTextarea ? 3 : undefined}
-                                          />
-                                          {withTranslation && (
-                                              <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                      <Button
-                                                          type="button"
-                                                          variant="outline"
-                                                          size="icon"
-                                                          onClick={() => handleTranslate(field, p[field])}
-                                                          disabled={isTranslating && translatingField === field}
-                                                      >
-                                                          {isTranslating && translatingField === field ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}
-                                                      </Button>
-                                                  </TooltipTrigger>
-                                                  <TooltipContent><p>Traducir a Español</p></TooltipContent>
-                                              </Tooltip>
-                                          )}
-                                      </div>
-                                  </div>
-                              );
-                          };
-                          
-                          const renderSelectField = (label: string, field: keyof Creation['params'], options: readonly string[]) => (
-                              <div>
-                                  <Label htmlFor={field as string} className="text-sm font-medium text-foreground">{label}</Label>
-                                  <Select value={p[field]} onValueChange={(value) => handleParamChange(field, value)}>
-                                      <SelectTrigger id={field as string} className="bg-background"><SelectValue /></SelectTrigger>
-                                      <SelectContent>{options.map(o => (<SelectItem key={o} value={o}>{o}</SelectItem>))}</SelectContent>
-                                  </Select>
-                              </div>
-                          );
 
                           switch (type) {
                               case 'generated':
@@ -727,7 +772,6 @@ export default function GalleryPage() {
                                       <div className="space-y-3">
                                           {renderSelectField('Cultura', 'culture', MYTHOLOGICAL_CULTURES)}
                                           {renderTextField('Entidad', 'entity', 'Ej: Zeus, Fénix', true)}
-                                          {renderTextField('Detalles', 'details', 'Describe la escena...', true, true)}
                                           {renderSelectField('Estilo', 'style', IMAGE_STYLES)}
                                           {renderSelectField('Relación de Aspecto', 'aspectRatio', ASPECT_RATIOS)}
                                           {renderSelectField('Calidad', 'imageQuality', IMAGE_QUALITIES)}
@@ -738,7 +782,6 @@ export default function GalleryPage() {
                                       <div className="space-y-3">
                                           {renderSelectField('Contexto Mitológico', 'mythologicalContext', MYTHOLOGICAL_CULTURES)}
                                           {renderTextField('Entidad/Tema', 'entityTheme', 'Ej: Medusa, Anubis', true)}
-                                          {renderTextField('Detalles Adicionales', 'additionalDetails', 'Cualquier detalle extra...', false, true)}
                                       </div>
                                   );
                               case 'reimagined':
@@ -747,7 +790,6 @@ export default function GalleryPage() {
                                           <Label className="text-base font-semibold text-primary/90">Contexto Original</Label>
                                           {renderSelectField('Cultura del Contexto', 'contextCulture', MYTHOLOGICAL_CULTURES)}
                                           {renderTextField('Entidad del Contexto', 'contextEntity', 'Ej: Atenea, Esfinge', true)}
-                                          {renderTextField('Detalles del Contexto', 'contextDetails', 'Describe la escena original...', true, true)}
                                           <div className="border-t pt-3 mt-3">
                                             <Label className="text-base font-semibold text-primary">Nuevos Parámetros</Label>
                                           </div>
@@ -857,7 +899,7 @@ export default function GalleryPage() {
         {zoomedImageUrl && (
           <Dialog open={!!zoomedImageUrl} onOpenChange={(open) => !open && setZoomedImageUrl(null)}>
             <DialogContent className="p-0 border-0 max-w-5xl bg-transparent shadow-none w-auto h-auto">
-              <DialogTitle className="sr-only">Imagen Ampliada</DialogTitle>
+               <DialogTitle className="sr-only">Imagen Ampliada</DialogTitle>
               <Image src={zoomedImageUrl} alt="Imagen ampliada" width={1200} height={1200} className="rounded-lg object-contain w-auto h-auto max-w-[90vw] max-h-[90vh]" />
             </DialogContent>
           </Dialog>
