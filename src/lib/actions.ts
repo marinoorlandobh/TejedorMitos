@@ -15,6 +15,8 @@ import { mapAspectRatioToDimensions, mapQualityToSteps } from "./utils";
 // This is a server action, it will be executed on the server
 export async function generateMythImageAction(input: GeneratedParams): Promise<GenerateMythImageOutput> {
   try {
+    // This flow only supports Google AI now.
+    // Client-side action handles Stable Diffusion
     const result = await generateMythImageFlow(input);
     return result;
   } catch (error: any) {
@@ -22,6 +24,7 @@ export async function generateMythImageAction(input: GeneratedParams): Promise<G
     if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
         throw new Error("Has excedido tu cuota de generación de imágenes. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
     }
+    // Propagate the specific error message from the flow
     throw new Error(error.message || "Failed to generate image. Please try again.");
   }
 }
@@ -31,7 +34,8 @@ export async function generateMythImageAction(input: GeneratedParams): Promise<G
 export async function generateImageWithStableDiffusionClientAction(input: { prompt: string; aspectRatio: string; imageQuality: string; }) {
     'use client'; // This directive is illustrative; this function is called from client components.
     
-    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL || 'http://127.0.0.1:7860';
+    // Hardcode the URL to ensure it's correct on the client.
+    const apiUrl = 'http://127.0.0.1:7860';
     
     const dimensions = mapAspectRatioToDimensions(input.aspectRatio);
     const steps = mapQualityToSteps(input.imageQuality);
@@ -69,7 +73,7 @@ export async function generateImageWithStableDiffusionClientAction(input: { prom
             throw new Error("La API de Stable Diffusion no devolvió ninguna imagen.");
         }
 
-        return `data:image/png;base64,${result.images[0]}`;
+        return { imageUrl: `data:image/png;base64,${result.images[0]}` };
     } catch (e: any) {
         if (e.message.includes('fetch failed')) {
             throw new Error(`No se pudo conectar a la API de Stable Diffusion en ${apiUrl}. ¿Está el servidor en ejecución con el argumento --api?`);
@@ -80,10 +84,14 @@ export async function generateImageWithStableDiffusionClientAction(input: { prom
 
 export async function reimagineImageWithStableDiffusionClientAction(input: ReimaginedParams & { originalImage: string }) {
     'use client';
-    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL || 'http://127.0.0.1:7860';
+    // Hardcode the URL to ensure it's correct on the client.
+    const apiUrl = 'http://127.0.0.1:7860';
     
     // We need to derive a prompt using the Google AI flow first
-    const { derivedPrompt } = await reimagineUploadedImageAction(input);
+    const { derivedPrompt } = await reimagineUploadedImageFlow({
+        originalImage: input.originalImage,
+        ...input
+    });
 
     const dimensions = mapAspectRatioToDimensions(input.aspectRatio);
     const steps = mapQualityToSteps(input.imageQuality);

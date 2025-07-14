@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -20,6 +21,7 @@ const GenerateMythImageInputSchema = z.object({
   style: z.string().describe('The visual style (e.g., Photorealistic, Anime, Oil Painting).'),
   aspectRatio: z.string().describe('The aspect ratio of the image.'),
   imageQuality: z.string().describe('The quality of the image.'),
+  // Provider is handled by which action is called, so it's not needed here.
 });
 
 export type GenerateMythImageInput = z.infer<typeof GenerateMythImageInputSchema>;
@@ -81,10 +83,8 @@ const generateMythImageFlow = ai.defineFlow(
     // A more descriptive prompt to guide the model better.
     const fullPrompt = `A visually rich image in the style of ${input.style}. The primary subject is the entity '${input.entity}' from ${input.culture} mythology. Key scene details include: ${input.details}. The desired image quality is ${input.imageQuality}.`;
     
-    let imageUrl: string;
-
-    // This flow now only handles Google AI. Stable Diffusion is handled client-side.
-    imageUrl = await generateWithGoogleAI(fullPrompt, input.aspectRatio);
+    // This server flow now only handles Google AI. Stable Diffusion is handled client-side.
+    const imageUrl = await generateWithGoogleAI(fullPrompt, input.aspectRatio);
 
     return {
       imageUrl: imageUrl,

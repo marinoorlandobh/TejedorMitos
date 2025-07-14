@@ -186,12 +186,12 @@ export default function BatchCreatePage() {
         const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${entity}' from ${cultureForPrompt} mythology. Key scene details include: ${promptToProcess}. The desired image quality is ${aiInputParams.imageQuality}.`;
 
         if (settings.provider === 'stable-diffusion') {
-            const imageUrl = await generateImageWithStableDiffusionClientAction({
+            const sdResult = await generateImageWithStableDiffusionClientAction({
                 prompt: fullPrompt,
                 aspectRatio: aiInputParams.aspectRatio,
                 imageQuality: aiInputParams.imageQuality
             });
-            imageResult = { imageUrl, prompt: fullPrompt };
+            imageResult = { ...sdResult, prompt: fullPrompt };
         } else {
             imageResult = await generateMythImageAction(aiInputParams);
         }

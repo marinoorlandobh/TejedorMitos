@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -22,6 +23,7 @@ const ReimagineUploadedImageInputSchema = z.object({
   visualStyle: z.string().describe('The new visual style for the reimagined image.'),
   aspectRatio: z.string().describe('The aspect ratio for the reimagined image.'),
   imageQuality: z.string().describe('The quality of the reimagined image.'),
+  // Provider is handled by which action is called, so it's not needed here.
 });
 
 export type ReimagineUploadedImageInput = z.infer<typeof ReimagineUploadedImageInputSchema>;
@@ -110,10 +112,8 @@ const reimagineUploadedImageFlow = ai.defineFlow(
   async input => {
     const {output: {derivedPrompt}} = await reimagineImagePrompt(input);
     
-    let reimaginedImage: string;
-
-    // This flow now only handles Google AI. Stable Diffusion is handled client-side.
-    reimaginedImage = await reimagineWithGoogleAI(derivedPrompt, input);
+    // This server flow now only handles Google AI. Stable Diffusion is handled client-side.
+    const reimaginedImage = await reimagineWithGoogleAI(derivedPrompt, input);
 
     return {reimaginedImage, derivedPrompt};
   }

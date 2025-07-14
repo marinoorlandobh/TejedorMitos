@@ -81,12 +81,12 @@ export default function CreateMythPage() {
       const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${aiInputParams.entity}' from ${aiInputParams.culture} mythology. Key scene details include: ${aiInputParams.details}. The desired image quality is ${aiInputParams.imageQuality}.`;
       
       if (data.provider === 'stable-diffusion') {
-        const imageUrl = await generateImageWithStableDiffusionClientAction({
+        const sdResult = await generateImageWithStableDiffusionClientAction({
             prompt: fullPrompt,
             aspectRatio: aiInputParams.aspectRatio,
             imageQuality: aiInputParams.imageQuality
         });
-        result = { imageUrl, prompt: fullPrompt };
+        result = { ...sdResult, prompt: fullPrompt };
       } else {
         result = await generateMythImageAction(aiInputParams);
       }
