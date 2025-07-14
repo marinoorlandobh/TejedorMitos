@@ -32,7 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLa
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { CreateFromPromptDialog } from '@/components/CreateFromPromptDialog';
-import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
+import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { Label } from '@/components/ui/label';
 import { translateTextAction, generateMythImageAction, reimagineUploadedImageAction } from '@/lib/actions';
 
@@ -384,7 +384,7 @@ export default function GalleryPage() {
     );
   };
   
-  const renderSelectField = (label: string, field: keyof Creation['params'], options: readonly string[]) => {
+  const renderSelectField = (label: string, field: keyof Creation['params'], options: readonly string[] | readonly {id: string, name: string}[]) => {
       if (!editedParams) return null;
       const p = editedParams as any;
       return (
@@ -392,7 +392,13 @@ export default function GalleryPage() {
               <Label htmlFor={field as string} className="text-sm font-medium text-foreground">{label}</Label>
               <Select value={p[field]} onValueChange={(value) => handleParamChange(field, value)}>
                   <SelectTrigger id={field as string} className="bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent>{options.map(o => (<SelectItem key={o} value={o}>{o}</SelectItem>))}</SelectContent>
+                  <SelectContent>
+                    {options.map(o => {
+                        const value = typeof o === 'string' ? o : o.id;
+                        const label = typeof o === 'string' ? o : o.name;
+                        return <SelectItem key={value} value={value}>{label}</SelectItem>
+                    })}
+                  </SelectContent>
               </Select>
           </div>
       );
@@ -772,6 +778,7 @@ export default function GalleryPage() {
                                       <div className="space-y-3">
                                           {renderSelectField('Cultura', 'culture', MYTHOLOGICAL_CULTURES)}
                                           {renderTextField('Entidad', 'entity', 'Ej: Zeus, Fénix', true)}
+                                          {renderSelectField('Motor de Generación', 'provider', IMAGE_PROVIDERS)}
                                           {renderSelectField('Estilo', 'style', IMAGE_STYLES)}
                                           {renderSelectField('Relación de Aspecto', 'aspectRatio', ASPECT_RATIOS)}
                                           {renderSelectField('Calidad', 'imageQuality', IMAGE_QUALITIES)}
@@ -793,6 +800,7 @@ export default function GalleryPage() {
                                           <div className="border-t pt-3 mt-3">
                                             <Label className="text-base font-semibold text-primary">Nuevos Parámetros</Label>
                                           </div>
+                                          {renderSelectField('Motor de Generación', 'provider', IMAGE_PROVIDERS)}
                                           {renderSelectField('Nuevo Estilo Visual', 'visualStyle', IMAGE_STYLES)}
                                           {renderSelectField('Nueva Relación de Aspecto', 'aspectRatio', ASPECT_RATIOS)}
                                           {renderSelectField('Nueva Calidad', 'imageQuality', IMAGE_QUALITIES)}
@@ -838,6 +846,9 @@ export default function GalleryPage() {
                             <p><strong>Nuevo Estilo:</strong> {p.visualStyle}</p>
                           </>;
                         })()}
+                        {(selectedCreation.params as any).provider && (
+                          <p><strong>Motor:</strong> {IMAGE_PROVIDERS.find(prov => prov.id === (selectedCreation.params as any).provider)?.name || (selectedCreation.params as any).provider}</p>
+                        )}
                         <p><strong>Calidad:</strong> {(selectedCreation.params as any).imageQuality || 'N/D'}</p>
                         <p><strong>Relación de Aspecto:</strong> {(selectedCreation.params as any).aspectRatio || 'N/D'}</p>
                       </div>
