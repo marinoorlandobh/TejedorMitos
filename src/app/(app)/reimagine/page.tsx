@@ -86,7 +86,7 @@ export default function ReimagineImagePage() {
     }
   };
 
-  async function reimagineWithStableDiffusion(originalImage: string, params: ReimaginedParams, fullReimagineParams: ReimagineImageFormData) {
+  async function reimagineWithStableDiffusion(originalImage: string, params: ReimaginedParams) {
     const apiUrl = 'http://127.0.0.1:7860';
     
     // We need to derive a prompt using the Google AI flow first, even for SD
@@ -138,7 +138,7 @@ export default function ReimagineImagePage() {
 
         return { reimaginedImage: `data:image/png;base64,${result.images[0]}`, derivedPrompt: sdPrompt };
     } catch (e: any) {
-        if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
+        if (e.message.includes('Failed to fetch')) {
              throw new Error(`Error de red o CORS. Asegúrate de que Stable Diffusion Web UI se ejecuta con '--cors-allow-origins="*"' y que puedes acceder a ${apiUrl}/docs`);
         }
         throw e;
@@ -182,7 +182,7 @@ export default function ReimagineImagePage() {
       let result;
       
       if (data.provider === 'stable-diffusion') {
-        result = await reimagineWithStableDiffusion(originalImageDataUri, aiInputParams, data);
+        result = await reimagineWithStableDiffusion(originalImageDataUri, aiInputParams);
       } else {
         result = await reimagineUploadedImageAction({
           originalImage: originalImageDataUri,
@@ -300,8 +300,7 @@ export default function ReimagineImagePage() {
                               <SelectTrigger><SelectValue placeholder="Selecciona cultura" /></SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {MYTHOLOGICAL_CULTURES.map(c => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-                            </SelectContent>
+                              {MYTHOLOGICAL_CULTURES.map(c => (<SelectItem key={c} value={c}>{c}</SelectItem>))}</SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
@@ -465,3 +464,4 @@ export default function ReimagineImagePage() {
 }
 
     
+

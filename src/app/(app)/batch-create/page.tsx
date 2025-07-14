@@ -210,7 +210,7 @@ export default function BatchCreatePage() {
 
         return { imageUrl: `data:image/png;base64,${result.images[0]}`, prompt };
     } catch (e: any) {
-        if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
+        if (e.message.includes('Failed to fetch')) {
              throw new Error(`Error de red o CORS. Asegúrate de que Stable Diffusion Web UI se ejecuta con '--cors-allow-origins="*"' y que puedes acceder a ${apiUrl}/docs`);
         }
         throw e;
@@ -231,9 +231,9 @@ export default function BatchCreatePage() {
         };
 
         let imageResult;
-        const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${entity}' from ${cultureForPrompt} mythology. Key scene details include: ${promptToProcess}. The desired image quality is ${aiInputParams.imageQuality}.`;
-
+        
         if (settings.provider === 'stable-diffusion') {
+            const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${entity}' from ${cultureForPrompt} mythology. Key scene details include: ${promptToProcess}. The desired image quality is ${aiInputParams.imageQuality}.`;
             imageResult = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality);
         } else {
             imageResult = await generateMythImageAction(aiInputParams);
@@ -708,3 +708,4 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
 };
 
     
+

@@ -1,22 +1,17 @@
 
 "use server";
 
-import { generateMythImage as generateMythImageFlow, type GenerateMythImageInput as ServerGenerateMythImageInput, type GenerateMythImageOutput } from "@/ai/flows/generate-myth-image";
+import { generateMythImage as generateMythImageFlow, type GenerateMythImageOutput } from "@/ai/flows/generate-myth-image";
 import { analyzeUploadedImage as analyzeUploadedImageFlow, type AnalyzeUploadedImageInput, type AnalyzeUploadedImageOutput } from "@/ai/flows/analyze-uploaded-image";
 import { reimagineUploadedImage as reimagineUploadedImageFlow, type ReimagineUploadedImageInput, type ReimagineUploadedImageOutput } from "@/ai/flows/reimagine-uploaded-image";
 import { extractMythologiesFromText as extractMythologiesFlow, type ExtractMythologiesInput, type ExtractMythologiesOutput } from "@/ai/flows/extract-mythologies-flow";
 import { extractDetailsFromPrompt as extractDetailsFromPromptFlow, type ExtractDetailsInput, type ExtractDetailsOutput } from "@/ai/flows/extract-details-from-prompt";
 import { fixImagePrompt as fixImagePromptFlow, type FixImagePromptInput, type FixImagePromptOutput } from "@/ai/flows/fix-image-prompt";
 import { translateText as translateTextFlow, type TranslateTextInput, type TranslateTextOutput } from "@/ai/flows/translate-text-flow";
-import type { GeneratedParams, ReimaginedParams } from "./types";
-import { mapAspectRatioToDimensions, mapQualityToSteps } from "./utils";
+import type { GeneratedParams } from "./types";
 
-
-// This is a server action, it will be executed on the server
 export async function generateMythImageAction(input: GeneratedParams): Promise<GenerateMythImageOutput> {
   try {
-    // This flow only supports Google AI now.
-    // Client-side action handles Stable Diffusion
     const result = await generateMythImageFlow(input);
     return result;
   } catch (error: any) {
@@ -24,12 +19,9 @@ export async function generateMythImageAction(input: GeneratedParams): Promise<G
     if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
         throw new Error("Has excedido tu cuota de generación de imágenes. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
     }
-    // Propagate the specific error message from the flow
     throw new Error(error.message || "Failed to generate image. Please try again.");
   }
 }
-
-// --- Server Actions for Genkit Flows ---
 
 export async function analyzeUploadedImageAction(input: AnalyzeUploadedImageInput): Promise<AnalyzeUploadedImageOutput> {
   try {
@@ -109,3 +101,4 @@ export async function translateTextAction(input: TranslateTextInput): Promise<Tr
     throw new Error(error.message || "No se pudo traducir el texto. Por favor, inténtalo de nuevo.");
   }
 }
+

@@ -124,7 +124,7 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
 
         return { imageUrl: `data:image/png;base64,${result.images[0]}`, prompt };
     } catch (e: any) {
-        if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
+        if (e.message.includes('Failed to fetch')) {
              throw new Error(`Error de red o CORS. Asegúrate de que Stable Diffusion Web UI se ejecuta con '--cors-allow-origins="*"' y que puedes acceder a ${apiUrl}/docs`);
         }
         throw e;
@@ -148,9 +148,9 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
 
     try {
       let result;
-      const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${aiInputParams.entity}' from ${aiInputParams.culture} mythology. Key scene details include: ${aiInputParams.details}. The desired image quality is ${aiInputParams.imageQuality}.`;
       
       if (data.provider === 'stable-diffusion') {
+        const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${aiInputParams.entity}' from ${aiInputParams.culture} mythology. Key scene details include: ${aiInputParams.details}. The desired image quality is ${aiInputParams.imageQuality}.`;
         result = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality);
       } else {
         result = await generateMythImageAction(aiInputParams);
@@ -384,4 +384,3 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
   );
 }
 
-    
