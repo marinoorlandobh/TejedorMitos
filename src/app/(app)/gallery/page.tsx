@@ -332,6 +332,15 @@ export default function GalleryPage() {
     );
   }
 
+  const getDescriptiveDetails = (creation: CreationFull): string | null => {
+    if (!creation) return null;
+    const { type, params } = creation;
+    if (type === 'generated') return (params as GeneratedParams).details;
+    if (type === 'reimagined') return (params as ReimaginedParams).contextDetails;
+    if (type === 'analyzed') return (params as AnalyzedParams).additionalDetails || null;
+    return null;
+  };
+
   return (
     <ScrollArea className="h-full">
       <div className="container mx-auto p-4 md:p-8">
@@ -619,6 +628,22 @@ export default function GalleryPage() {
                   ) : (
                     <p className="text-muted-foreground">No hay imagen asociada.</p>
                   )}
+
+                  {(() => {
+                    const details = getDescriptiveDetails(selectedCreation);
+                    if (details) {
+                      return (
+                        <div className="space-y-1">
+                          <h4 className="font-semibold text-md text-primary/90">Detalles Descriptivos</h4>
+                          <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md break-words">
+                            {details}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
                   {selectedCreation.type === 'reimagined' && selectedCreation.originalImageData?.imageDataUri && (
                     <>
                       <h3 className="font-semibold text-lg text-primary mt-4">Imagen Original</h3>
@@ -698,7 +723,6 @@ export default function GalleryPage() {
 
                           switch (type) {
                               case 'generated':
-                                  const genParams = p as GeneratedParams;
                                   return (
                                       <div className="space-y-3">
                                           {renderSelectField('Cultura', 'culture', MYTHOLOGICAL_CULTURES)}
@@ -718,7 +742,6 @@ export default function GalleryPage() {
                                       </div>
                                   );
                               case 'reimagined':
-                                  const reimagineParams = p as ReimaginedParams;
                                   return (
                                       <div className="space-y-3">
                                           <Label className="text-base font-semibold text-primary/90">Contexto Original</Label>
