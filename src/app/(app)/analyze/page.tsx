@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -18,6 +19,7 @@ import { analyzeUploadedImageAction } from '@/lib/actions';
 import type { AnalyzedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES } from '@/lib/types'; 
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const analyzeImageSchema = z.object({
   name: z.string().min(1, "El nombre del análisis es obligatorio.").max(100),
@@ -207,9 +209,18 @@ export default function AnalyzeImagePage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Contexto Mitológico</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ej: Griega, Nórdica, Egipcia" {...field} />
-                        </FormControl>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona una cultura" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {MYTHOLOGICAL_CULTURES.map(culture => (
+                              <SelectItem key={culture} value={culture}>{culture}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
