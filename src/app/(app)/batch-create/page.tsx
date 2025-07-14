@@ -62,6 +62,7 @@ interface ResultState {
     status: 'pending' | 'processing' | 'success' | 'error';
     imageId?: string;
     name?: string;
+    entity?: string;
     error?: string;
 }
 
@@ -69,7 +70,7 @@ export default function BatchCreatePage() {
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [results, setResults] = useState<ResultState[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
-  const { addCreation, getImageData } = useHistory();
+  const { addCreation } = useHistory();
   const { toast } = useToast();
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -222,92 +223,85 @@ export default function BatchCreatePage() {
         }
     }, []);
 
-    const runSinglePromptProcessing = useCallback(async (index: number, promptToProcess: string, cultureForPrompt: string, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
-        let creationName = '';
-        let entity = '';
-
-        if (settings.provider === 'google-ai') {
-            try {
-                const details = await extractDetailsFromPromptAction({ promptText: promptToProcess });
-                creationName = details.creationName;
-                entity = details.entity;
-            } catch (nameError: any) {
-                // If name extraction fails, we can still proceed with a generic name
-                console.error(`Could not extract name for prompt: "${promptToProcess}". Error:`, nameError);
-                creationName = `Creación en Lote #${index + 1}`;
-                entity = promptToProcess.split(' ').slice(0, 3).join(' ');
-                // We will add the error to the final result state later.
-                // For now, we throw it so the main catch block can handle it.
-                throw new Error(`Fallo en la extracción de nombre: ${nameError.message}`);
-            }
-        } else {
-            // For local providers, use a generic naming scheme
-            creationName = `Creación en Lote #${index + 1}`;
-            entity = promptToProcess.split(' ').slice(0, 3).join(' '); // Use first few words as entity
-        }
-        
-        const aiInputParams: GeneratedParams = {
-            culture: cultureForPrompt,
-            entity: entity,
-            details: promptToProcess,
-            style: settings.style,
-            aspectRatio: settings.aspectRatio,
-            imageQuality: settings.imageQuality,
-            provider: settings.provider,
-        };
-
-        let imageResult;
-        
-        if (settings.provider === 'stable-diffusion') {
-            const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${entity}' from ${cultureForPrompt} mythology. Key scene details include: ${promptToProcess}. The desired image quality is ${aiInputParams.imageQuality}.`;
-            imageResult = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality);
-        } else {
-            imageResult = await generateMythImageAction(aiInputParams);
-        }
-        
-        const creationResult = await addCreation('generated', creationName, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
-        
-        if (!creationResult) {
-            throw new Error("Error al guardar la creación en la base de datos.");
-        }
-
-        return { imageId: creationResult.imageId, name: creationName };
-    }, [addCreation, generateWithStableDiffusion]);
-
-
-    const processSinglePrompt = useCallback(async (index: number) => {
-        // Use a function to get the latest state of results
-        let resultToProcess;
+    const runSinglePromptProcessing = useCallback(async (index: number) => {
+        let resultToProcess!: ResultState;
         setResults(prev => {
             resultToProcess = prev[index];
             if (!resultToProcess) return prev;
             return prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined } : r);
         });
-
-        // Wait a tick for state to settle, then check if we have a task
+        
+        // This is a tick to ensure state is updated before proceeding.
         await new Promise(resolve => setTimeout(resolve, 0));
-        if (!resultToProcess) return false;
+        
+        if (!resultToProcess || !resultToProcess.name || !resultToProcess.entity) {
+             setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: "Faltan nombre y entidad. Reintenta la extracción de nombres." } : r));
+             return false;
+        }
 
-        const settings = { ...form.getValues(), provider: resultToProcess.provider };
-        const { prompt, culture } = resultToProcess;
+        const settings = form.getValues();
+
+        const aiInputParams: GeneratedParams = {
+            culture: resultToProcess.culture,
+            entity: resultToProcess.entity,
+            details: resultToProcess.prompt,
+            style: settings.style,
+            aspectRatio: settings.aspectRatio,
+            imageQuality: settings.imageQuality,
+            provider: resultToProcess.provider,
+        };
 
         try {
-            const TIMEOUT_MS = 60000; 
-            const result = await withTimeout(
-                runSinglePromptProcessing(index, prompt, culture, settings),
-                TIMEOUT_MS
-            );
+            let imageResult;
+            if (resultToProcess.provider === 'stable-diffusion') {
+                 const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${aiInputParams.entity}' from ${aiInputParams.culture} mythology. Key scene details include: ${resultToProcess.prompt}. The desired image quality is ${aiInputParams.imageQuality}.`;
+                imageResult = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality);
+            } else {
+                imageResult = await generateMythImageAction(aiInputParams);
+            }
             
-            setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageId: result.imageId, name: result.name } : r));
+            const creationResult = await addCreation('generated', resultToProcess.name, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
+            
+            if (!creationResult) {
+                throw new Error("Error al guardar la creación en la base de datos.");
+            }
+            
+            setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageId: creationResult.imageId } : r));
             return true;
         } catch (error: any) {
-            console.error(`Error processing prompt: ${prompt}`, error);
+            console.error(`Error processing prompt: ${resultToProcess.prompt}`, error);
             const errorMessage = error.message || "Error desconocido";
             setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: errorMessage } : r));
             return false;
         }
-    }, [form, runSinglePromptProcessing]);
-  
+    }, [addCreation, generateWithStableDiffusion, form]);
+
+
+    const processImageGeneration = useCallback(async (signal: AbortSignal) => {
+        for (let i = 0; i < results.length; i++) {
+            if (signal.aborted) {
+                toast({ title: "Proceso Detenido", description: "La generación de imágenes fue detenida por el usuario." });
+                break;
+            }
+            await runSinglePromptProcessing(i);
+            setProgress(prev => ({ ...prev, current: i + 1 }));
+        }
+
+        setResults(currentResults => {
+            if (!currentResults.some(r => r.status !== 'success')) {
+                setIsProcessingBatch(false);
+            }
+            return currentResults;
+        });
+
+        abortControllerRef.current = null;
+
+        if (!signal.aborted) {
+            toast({ title: "Generación de Imágenes Terminada", description: "Revisa los resultados en la lista." });
+        }
+    }, [results.length, runSinglePromptProcessing, toast]);
+
+    
   const getTaskForLine = (line: string, defaultCulture: string) => {
     let culture = defaultCulture;
     let processedLine = line.replace('\t', ';').trim();
@@ -342,42 +336,46 @@ export default function BatchCreatePage() {
 
     const tasks = promptLines.map(line => getTaskForLine(line, data.culture));
 
-    const initialResults = tasks.map(t => ({ 
+    let initialResults = tasks.map(t => ({ 
         prompt: t.prompt, 
         culture: t.culture, 
         provider: data.provider, 
-        status: 'pending' 
+        status: 'pending' as const
     }));
     
     setResults(initialResults);
+    
+    toast({ title: "Extrayendo Nombres...", description: "Preparando el lote para la generación." });
+
+    if (data.provider === 'google-ai') {
+        try {
+            const extractedDetails = await Promise.all(
+                initialResults.map(r => extractDetailsFromPromptAction({ promptText: r.prompt }))
+            );
+            initialResults = initialResults.map((r, i) => ({
+                ...r,
+                name: extractedDetails[i].creationName,
+                entity: extractedDetails[i].entity
+            }));
+            setResults(initialResults);
+            toast({ title: "Nombres Extraídos", description: "Comenzando la generación de imágenes." });
+        } catch (error: any) {
+             toast({ variant: "destructive", title: "Error al Extraer Nombres", description: "No se pudo preparar el lote. Revisa tu conexión o la cuota de API." });
+             setIsProcessingBatch(false);
+             return;
+        }
+    } else {
+        initialResults = initialResults.map((r, i) => ({
+            ...r,
+            name: `Creación en Lote #${i + 1}`,
+            entity: r.prompt.split(' ').slice(0, 3).join(' ')
+        }));
+        setResults(initialResults);
+    }
+    
     setProgress({ current: 0, total: tasks.length });
     
-    // We use a small timeout to allow React to render the initial pending state
-    // before we start processing.
-    setTimeout(async () => {
-      for (const [index, task] of tasks.entries()) {
-          if (signal.aborted) {
-              toast({ title: "Proceso Detenido", description: "La generación en lote fue detenida por el usuario." });
-              break; 
-          }
-          await processSinglePrompt(index);
-          setProgress(prev => ({ ...prev, current: index + 1 }));
-      }
-      
-      // Update state after loop finishes
-      setResults(currentResults => {
-        if (!currentResults.some(r => r.status !== 'success')) {
-          setIsProcessingBatch(false);
-        }
-        return currentResults;
-      });
-
-      abortControllerRef.current = null; 
-
-      if (!signal.aborted) {
-        toast({ title: "Proceso en Lote Terminado", description: "Revisa los resultados en la lista." });
-      }
-    }, 100);
+    setTimeout(() => processImageGeneration(signal), 100);
   }
 
   const handleStopProcessing = () => {
@@ -387,7 +385,7 @@ export default function BatchCreatePage() {
   };
 
   const handleRetry = (index: number) => {
-    processSinglePrompt(index);
+    runSinglePromptProcessing(index);
   };
 
   const handleEdit = (index: number) => {
@@ -407,17 +405,40 @@ export default function BatchCreatePage() {
     setEditedPromptText('');
   };
 
-  const handleSaveAndRetry = () => {
-    if (editingIndex !== null) {
-      const task = getTaskForLine(editedPromptText, form.getValues().culture);
-      
-      setResults(prev => prev.map((r, idx) => idx === editingIndex ? { ...r, prompt: task.prompt, culture: task.culture } : r));
-      
-      // We need to use a timeout to allow the state to update before processing
-      setTimeout(() => processSinglePrompt(editingIndex), 0);
-      
-      handleCancelEdit();
+  const handleSaveAndRetry = async () => {
+    if (editingIndex === null) return;
+
+    const task = getTaskForLine(editedPromptText, form.getValues().culture);
+    
+    let needsNameExtraction = false;
+    let updatedResults = results.map((r, idx) => {
+        if (idx === editingIndex) {
+            if (r.provider === 'google-ai' && r.prompt !== task.prompt) {
+                needsNameExtraction = true;
+            }
+            return { ...r, prompt: task.prompt, culture: task.culture, status: 'pending' as const };
+        }
+        return r;
+    });
+
+    if (needsNameExtraction) {
+        try {
+            const details = await extractDetailsFromPromptAction({ promptText: task.prompt });
+            updatedResults = updatedResults.map((r, idx) => 
+                idx === editingIndex ? { ...r, name: details.creationName, entity: details.entity } : r
+            );
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "Error", description: `No se pudo extraer el nombre para el prompt editado: ${e.message}`});
+            updatedResults = updatedResults.map((r, idx) =>
+                idx === editingIndex ? { ...r, status: 'error' as const, error: 'Fallo al extraer nombre del prompt editado.' } : r
+            );
+        }
     }
+    setResults(updatedResults);
+    
+    const indexToProcess = editingIndex;
+    handleCancelEdit();
+    setTimeout(() => runSinglePromptProcessing(indexToProcess), 0);
   };
 
   const handleAiFixAndRetry = async (index: number) => {
@@ -434,9 +455,19 @@ export default function BatchCreatePage() {
       const { fixedPrompt } = await fixImagePromptAction({ promptText: originalPrompt });
       toast({ title: "¡Prompt Corregido!", description: "Reintentando la generación con el nuevo prompt." });
       
-      setResults(prev => prev.map((r, idx) => idx === index ? { ...r, prompt: fixedPrompt } : r));
+      const updatedResults = results.map((r, idx) => idx === index ? { ...r, prompt: fixedPrompt, status: 'pending' as const } : r);
+      let finalResults = updatedResults;
+
+      if (updatedResults[index].provider === 'google-ai') {
+        const details = await extractDetailsFromPromptAction({ promptText: fixedPrompt });
+        finalResults = updatedResults.map((r, idx) => 
+            idx === index ? { ...r, name: details.creationName, entity: details.entity } : r
+        );
+      }
       
-      setTimeout(() => processSinglePrompt(index), 0);
+      setResults(finalResults);
+      
+      setTimeout(() => runSinglePromptProcessing(index), 0);
 
     } catch (error: any) {
         console.error("Error fixing prompt with AI:", error);
@@ -470,19 +501,19 @@ export default function BatchCreatePage() {
     const signal = abortControllerRef.current.signal;
     toast({ title: "Reintentando el lote...", description: "Se procesarán todos los elementos pendientes o con error." });
 
-    const itemsToRetry = results.map((_, index) => index).filter(index => {
+    const itemsToRetryIndices = results.map((_, index) => index).filter(index => {
         const result = results[index];
         return result.status === 'pending' || result.status === 'error';
     });
     
-    setProgress({ current: 0, total: itemsToRetry.length });
+    setProgress({ current: 0, total: itemsToRetryIndices.length });
 
-    for (const [i, index] of itemsToRetry.entries()) {
+    for (const [i, index] of itemsToRetryIndices.entries()) {
         if (signal.aborted) {
             toast({ title: "Proceso Detenido", description: "La generación en lote fue detenida." });
             break;
         }
-        await processSinglePrompt(index);
+        await runSinglePromptProcessing(index);
         setProgress(prev => ({ ...prev, current: i + 1 }));
     }
     
@@ -716,7 +747,7 @@ export default function BatchCreatePage() {
                                     <div className="text-xs text-muted-foreground mt-1">
                                         <span>{result.culture} &bull; {IMAGE_PROVIDERS.find(p => p.id === result.provider)?.name || result.provider}</span>
                                     </div>
-                                    {result.status === 'success' && result.name && <p className="text-xs text-primary font-semibold">Generado: {result.name}</p>}
+                                    {result.name && <p className="text-xs text-primary font-semibold">Nombre: {result.name}</p>}
                                     {result.status === 'error' && result.error && <p className="text-xs text-destructive">{result.error}</p>}
                                 </div>
                                 {result.status === 'success' && result.imageId && result.name && (
@@ -779,5 +810,7 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
 
   return <Image src={imageUrl} alt={`Generated: ${name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />;
 };
+
+    
 
     
