@@ -1,3 +1,4 @@
+
 import Dexie, { type Table } from 'dexie';
 import type { Creation, ImageDataModel, TextOutputModel } from './types';
 
@@ -12,6 +13,10 @@ export class MythWeaverDB extends Dexie {
       creations: '++id, name, type, createdAt, updatedAt, imageId, outputId, originalImageId',
       imageDataStore: '++id',
       textOutputStore: '++id',
+    });
+    // Add new version for the new 'isTranslated' field
+    this.version(2).stores({
+      creations: '++id, name, type, createdAt, updatedAt, imageId, outputId, originalImageId, isTranslated',
     });
   }
 }

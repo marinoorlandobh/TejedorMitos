@@ -20,6 +20,7 @@ interface HistoryContextType {
   ) => Promise<{ creationId: string; imageId?: string; } | undefined>;
   updateCreationName: (id: string, newName: string) => Promise<void>;
   updateCreationParams: (id: string, newParams: Creation['params']) => Promise<void>;
+  updateCreationTranslatedStatus: (id: string, isTranslated: boolean) => Promise<void>;
   updateCreationImageAndOutput: (id: string, params: Creation['params'], newImageDataUri: string, newOutputData: GeneratedOutputData | ReimaginedOutputData) => Promise<Creation | undefined>;
   deleteCreation: (id: string) => Promise<void>;
   getCreationById: (id: string) => Promise<Creation | undefined>;
@@ -169,6 +170,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
           createdAt: now,
           updatedAt: now,
           params,
+          isTranslated: false, // Default to not translated
           imageId,
           originalImageId: type === 'reimagined' ? originalImageId : undefined, // Only for reimagined
           outputId,
@@ -208,6 +210,18 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error("Failed to update creation params:", e);
       setError(e.message || "Failed to update params.");
       setLoading(false);
+    }
+  };
+
+  const updateCreationTranslatedStatus = async (id: string, isTranslated: boolean) => {
+    // This is a lightweight update, so we might not need a global loading state
+    // unless the operation proves to be slow.
+    try {
+        await db.creations.update(id, { isTranslated, updatedAt: Date.now() });
+    } catch (e: any) {
+        console.error("Failed to update translated status:", e);
+        setError(e.message || "Failed to update translated status.");
+        // We might want to show a toast here instead of a global error
     }
   };
   
@@ -441,7 +455,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   return (
-    <HistoryContext.Provider value={{ creations, addCreation, updateCreationName, updateCreationParams, updateCreationImageAndOutput, deleteCreation, getCreationById, getImageData, getTextOutput, exportData, importData, clearAllData, loading, error }}>
+    <HistoryContext.Provider value={{ creations, addCreation, updateCreationName, updateCreationParams, updateCreationTranslatedStatus, updateCreationImageAndOutput, deleteCreation, getCreationById, getImageData, getTextOutput, exportData, importData, clearAllData, loading, error }}>
       {children}
     </HistoryContext.Provider>
   );

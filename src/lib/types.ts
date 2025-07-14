@@ -1,3 +1,4 @@
+
 export interface Creation {
   id: string; // UUID
   name: string;
@@ -5,6 +6,7 @@ export interface Creation {
   createdAt: number; // Timestamp
   updatedAt: number; // Timestamp
   params: GeneratedParams | AnalyzedParams | ReimaginedParams;
+  isTranslated?: boolean; // Flag to indicate if the item has been reviewed/translated
   customCultureDetails?: string;
   originalImageFileName?: string;
   imageDimensions?: { width: number; height: number };

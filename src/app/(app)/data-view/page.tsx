@@ -16,6 +16,7 @@ import Papa from 'papaparse';
 import { Textarea } from '@/components/ui/textarea';
 import { translateTextAction } from '@/lib/actions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 interface EnrichedCreation extends Creation {
     textOutput?: TextOutputModel;
@@ -52,7 +53,7 @@ const getFullDetails = (c: EnrichedCreation) => {
 
 
 export default function DataViewPage() {
-    const { creations, getTextOutput, updateCreationName, updateCreationParams, loading: historyLoading } = useHistory();
+    const { creations, getTextOutput, updateCreationName, updateCreationParams, updateCreationTranslatedStatus, loading: historyLoading } = useHistory();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [enrichedCreations, setEnrichedCreations] = useState<EnrichedCreation[]>([]);
@@ -106,6 +107,7 @@ export default function DataViewPage() {
         const dataForCsv = filteredCreations.map(c => ({
             "Nombre": c.name,
             "Tipo": c.type,
+            "Traducido": c.isTranslated ? "Sí" : "No",
             "Cultura/Contexto": getCulture(c),
             "Entidad/Tema": getEntity(c),
             "Detalles/Salida IA": getFullDetails(c),
@@ -180,6 +182,15 @@ export default function DataViewPage() {
             setIsTranslating(false);
         }
     };
+    
+    const toggleTranslatedStatus = (creation: Creation) => {
+        const newStatus = !creation.isTranslated;
+        updateCreationTranslatedStatus(creation.id, newStatus);
+        toast({
+            title: newStatus ? "Marcado como Traducido" : "Marcado como No Traducido",
+            duration: 2000
+        });
+    };
 
 
     if (isLoading) {
@@ -251,9 +262,10 @@ export default function DataViewPage() {
                                         <TableRow>
                                             <TableHead className="w-[15%]">Nombre</TableHead>
                                             <TableHead className="w-[10%]">Tipo</TableHead>
-                                            <TableHead className="w-[15%]">Cultura/Contexto</TableHead>
+                                            <TableHead className="w-[10%]">Cultura/Contexto</TableHead>
                                             <TableHead className="w-[15%]">Entidad/Tema</TableHead>
                                             <TableHead>Detalles / Salida IA</TableHead>
+                                            <TableHead className="w-[5%] text-center">Traducido</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -308,6 +320,26 @@ export default function DataViewPage() {
                                                          )}
                                                        </>
                                                    )}
+                                                </TableCell>
+                                                <TableCell className="align-top text-center">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => toggleTranslatedStatus(creation)}
+                                                                className={cn(
+                                                                    "h-7 w-7",
+                                                                    creation.isTranslated ? "text-primary hover:text-primary/80" : "text-muted-foreground/50 hover:text-muted-foreground"
+                                                                )}
+                                                            >
+                                                                <Languages className="h-5 w-5" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>{creation.isTranslated ? "Marcar como no traducido" : "Marcar como traducido"}</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
