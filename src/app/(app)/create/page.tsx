@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Wand2, Loader2, Eye, Copy, AlertTriangle } from 'lucide-react';
+import { Wand2, Loader2, Eye, Copy, AlertTriangle, Eraser } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -85,7 +85,7 @@ export default function CreateMythPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-            mode: 'cors', // Explicitly set mode
+            mode: 'cors',
         });
 
         if (!response.ok) {
@@ -251,7 +251,19 @@ export default function CreateMythPage() {
                     name="details"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Detalles Descriptivos</FormLabel>
+                        <div className="flex justify-between items-center">
+                          <FormLabel>Detalles Descriptivos</FormLabel>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => form.setValue('details', '')}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Eraser className="mr-2 h-4 w-4" />
+                            Limpiar
+                          </Button>
+                        </div>
                         <FormControl>
                           <Textarea placeholder="Ej: Sosteniendo un rayo, rodeado de nebulosas arremolinadas, ruinas antiguas en un bosque neblinoso..." {...field} rows={4} />
                         </FormControl>
@@ -405,5 +417,3 @@ export default function CreateMythPage() {
     </ScrollArea>
   );
 }
-
-    
