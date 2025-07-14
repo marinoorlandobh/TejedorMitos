@@ -56,7 +56,7 @@ export function AppSidebar() {
                 asChild
                 variant="default"
                 size="default"
-                isActive={pathname === item.href || (item.href !== "/create" && pathname.startsWith(item.href))}
+                isActive={pathname === item.href}
                 tooltip={{children: item.label, side: "right", className: "font-body"}}
                 className="font-body"
               >
