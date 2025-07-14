@@ -105,16 +105,16 @@ async function reimagineWithGoogleAI(derivedPrompt: string, input: ReimagineUplo
 
 
 async function reimagineWithStableDiffusion(derivedPrompt: string, input: ReimagineUploadedImageInput) {
-    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL;
-    if (!apiUrl) {
-        throw new Error("La URL de la API de Stable Diffusion no está configurada. Por favor, define NEXT_PUBLIC_STABLE_DIFFUSION_API_URL en tu archivo .env.local.");
-    }
+    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL || 'http://127.0.0.1:7860';
 
     const dimensions = mapAspectRatioToDimensions(input.aspectRatio);
     const steps = mapQualityToSteps(input.imageQuality);
 
+    // For img2img, the original image must not include the 'data:image/png;base64,' prefix.
+    const base64Image = input.originalImage.split(',')[1];
+    
     const payload = {
-        init_images: [input.originalImage],
+        init_images: [base64Image],
         prompt: derivedPrompt,
         negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
         seed: -1,
