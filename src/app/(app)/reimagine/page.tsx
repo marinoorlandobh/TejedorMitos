@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -15,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { reimagineUploadedImageAction } from '@/lib/actions';
+import { reimagineUploadedImageAction, reimagineImageWithStableDiffusionClientAction } from '@/lib/actions';
 import type { ReimaginedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -117,10 +118,20 @@ export default function ReimagineImagePage() {
     };
 
     try {
-      const result = await reimagineUploadedImageAction({
-        originalImage: originalImageDataUri,
-        ...aiInputParams
-      });
+      let result;
+      
+      if (data.provider === 'stable-diffusion') {
+        result = await reimagineImageWithStableDiffusionClientAction({
+          originalImage: originalImageDataUri,
+          ...aiInputParams,
+        });
+      } else {
+        result = await reimagineUploadedImageAction({
+          originalImage: originalImageDataUri,
+          ...aiInputParams,
+        });
+      }
+      
       setReimaginedImage(result.reimaginedImage);
       setDerivedPrompt(result.derivedPrompt);
 

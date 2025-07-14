@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -16,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { generateMythImageAction } from '@/lib/actions';
+import { generateMythImageAction, generateImageWithStableDiffusionClientAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -98,7 +99,20 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
     };
 
     try {
-      const result = await generateMythImageAction(aiInputParams);
+      let result;
+      const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${aiInputParams.entity}' from ${aiInputParams.culture} mythology. Key scene details include: ${aiInputParams.details}. The desired image quality is ${aiInputParams.imageQuality}.`;
+      
+      if (data.provider === 'stable-diffusion') {
+        const imageUrl = await generateImageWithStableDiffusionClientAction({
+            prompt: fullPrompt,
+            aspectRatio: aiInputParams.aspectRatio,
+            imageQuality: aiInputParams.imageQuality
+        });
+        result = { imageUrl, prompt: fullPrompt };
+      } else {
+        result = await generateMythImageAction(aiInputParams);
+      }
+      
       setGeneratedImage(result.imageUrl);
       setGeneratedPrompt(result.prompt);
 

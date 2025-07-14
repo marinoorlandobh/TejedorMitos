@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview A flow for generating images based on mythological themes.
+ * @fileOverview A flow for generating images based on mythological themes using Google AI.
  *
  * - generateMythImage - A function that generates an image based on a mythological theme.
  * - GenerateMythImageInput - The input type for the generateMythImage function.
@@ -10,7 +10,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { mapAspectRatioToDimensions, mapQualityToSteps } from '@/lib/utils';
 
 const GenerateMythImageInputSchema = z.object({
   culture: z
@@ -21,7 +20,6 @@ const GenerateMythImageInputSchema = z.object({
   style: z.string().describe('The visual style (e.g., Photorealistic, Anime, Oil Painting).'),
   aspectRatio: z.string().describe('The aspect ratio of the image.'),
   imageQuality: z.string().describe('The quality of the image.'),
-  provider: z.enum(['google-ai', 'stable-diffusion']).describe('The image generation provider to use.'),
 });
 
 export type GenerateMythImageInput = z.infer<typeof GenerateMythImageInputSchema>;
@@ -38,8 +36,6 @@ export async function generateMythImage(input: GenerateMythImageInput): Promise<
 }
 
 async function generateWithGoogleAI(prompt: string, aspectRatio: string) {
-    const aspectRatioForApi = aspectRatio.split(' ')[0];
-
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: prompt,
@@ -74,54 +70,6 @@ async function generateWithGoogleAI(prompt: string, aspectRatio: string) {
     return media.url;
 }
 
-async function generateWithStableDiffusion(prompt: string, input: GenerateMythImageInput) {
-    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL || 'http://127.0.0.1:7860';
-    
-    const dimensions = mapAspectRatioToDimensions(input.aspectRatio);
-    const steps = mapQualityToSteps(input.imageQuality);
-
-    const payload = {
-        prompt: prompt,
-        negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
-        seed: -1,
-        sampler_name: "DPM++ 2M Karras",
-        batch_size: 1,
-        n_iter: 1,
-        steps: steps,
-        cfg_scale: 7,
-        width: dimensions.width,
-        height: dimensions.height,
-        restore_faces: true,
-    };
-
-    try {
-        const response = await fetch(`${apiUrl}/sdapi/v1/txt2img`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            cache: 'no-store',
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Error de la API de Stable Diffusion: ${response.status} - ${errorText}`);
-        }
-        
-        const result = await response.json();
-        
-        if (!result.images || result.images.length === 0) {
-            throw new Error("La API de Stable Diffusion no devolvió ninguna imagen.");
-        }
-
-        return `data:image/png;base64,${result.images[0]}`;
-    } catch (e: any) {
-        if (e.message.includes('fetch failed')) {
-            throw new Error(`No se pudo conectar a la API de Stable Diffusion en ${apiUrl}. ¿Está el servidor en ejecución con el argumento --api?`);
-        }
-        throw e;
-    }
-}
-
 
 const generateMythImageFlow = ai.defineFlow(
   {
@@ -135,11 +83,8 @@ const generateMythImageFlow = ai.defineFlow(
     
     let imageUrl: string;
 
-    if (input.provider === 'stable-diffusion') {
-        imageUrl = await generateWithStableDiffusion(fullPrompt, input);
-    } else {
-        imageUrl = await generateWithGoogleAI(fullPrompt, input.aspectRatio);
-    }
+    // This flow now only handles Google AI. Stable Diffusion is handled client-side.
+    imageUrl = await generateWithGoogleAI(fullPrompt, input.aspectRatio);
 
     return {
       imageUrl: imageUrl,

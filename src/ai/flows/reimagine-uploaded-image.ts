@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview AI flow for reimaging an uploaded image with a different style or parameters.
+ * @fileOverview AI flow for reimaging an uploaded image with a different style or parameters using Google AI.
  *
  * - reimagineUploadedImage - A function that handles the image reimagination process.
  * - ReimagineUploadedImageInput - The input type for the reimagineUploadedImage function.
@@ -9,7 +9,6 @@
  */
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { mapAspectRatioToDimensions, mapQualityToSteps } from '@/lib/utils';
 
 const ReimagineUploadedImageInputSchema = z.object({
   originalImage: z
@@ -23,7 +22,6 @@ const ReimagineUploadedImageInputSchema = z.object({
   visualStyle: z.string().describe('The new visual style for the reimagined image.'),
   aspectRatio: z.string().describe('The aspect ratio for the reimagined image.'),
   imageQuality: z.string().describe('The quality of the reimagined image.'),
-  provider: z.enum(['google-ai', 'stable-diffusion']).describe('The image generation provider to use.'),
 });
 
 export type ReimagineUploadedImageInput = z.infer<typeof ReimagineUploadedImageInputSchema>;
@@ -103,61 +101,6 @@ async function reimagineWithGoogleAI(derivedPrompt: string, input: ReimagineUplo
     return media.url;
 }
 
-
-async function reimagineWithStableDiffusion(derivedPrompt: string, input: ReimagineUploadedImageInput) {
-    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL || 'http://127.0.0.1:7860';
-
-    const dimensions = mapAspectRatioToDimensions(input.aspectRatio);
-    const steps = mapQualityToSteps(input.imageQuality);
-
-    // For img2img, the original image must not include the 'data:image/png;base64,' prefix.
-    const base64Image = input.originalImage.split(',')[1];
-    
-    const payload = {
-        init_images: [base64Image],
-        prompt: derivedPrompt,
-        negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
-        seed: -1,
-        sampler_name: "DPM++ 2M Karras",
-        batch_size: 1,
-        n_iter: 1,
-        steps: steps,
-        cfg_scale: 7,
-        width: dimensions.width,
-        height: dimensions.height,
-        restore_faces: true,
-        denoising_strength: 0.75, // Important for img2img
-    };
-
-    try {
-        const response = await fetch(`${apiUrl}/sdapi/v1/img2img`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            cache: 'no-store',
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Error de la API de Stable Diffusion (img2img): ${response.status} - ${errorText}`);
-        }
-        
-        const result = await response.json();
-        
-        if (!result.images || result.images.length === 0) {
-            throw new Error("La API de Stable Diffusion (img2img) no devolvió ninguna imagen.");
-        }
-
-        return `data:image/png;base64,${result.images[0]}`;
-    } catch (e: any) {
-        if (e.message.includes('fetch failed')) {
-            throw new Error(`No se pudo conectar a la API de Stable Diffusion en ${apiUrl}. ¿Está el servidor en ejecución con el argumento --api?`);
-        }
-        throw e;
-    }
-}
-
-
 const reimagineUploadedImageFlow = ai.defineFlow(
   {
     name: 'reimagineUploadedImageFlow',
@@ -169,11 +112,8 @@ const reimagineUploadedImageFlow = ai.defineFlow(
     
     let reimaginedImage: string;
 
-    if (input.provider === 'stable-diffusion') {
-        reimaginedImage = await reimagineWithStableDiffusion(derivedPrompt, input);
-    } else {
-        reimaginedImage = await reimagineWithGoogleAI(derivedPrompt, input);
-    }
+    // This flow now only handles Google AI. Stable Diffusion is handled client-side.
+    reimaginedImage = await reimagineWithGoogleAI(derivedPrompt, input);
 
     return {reimaginedImage, derivedPrompt};
   }

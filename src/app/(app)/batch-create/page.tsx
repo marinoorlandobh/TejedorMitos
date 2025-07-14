@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDescriptionComponent } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction } from '@/lib/actions';
+import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction, generateImageWithStableDiffusionClientAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -181,8 +181,21 @@ export default function BatchCreatePage() {
             imageQuality: settings.imageQuality,
             provider: settings.provider,
         };
+
+        let imageResult;
+        const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${entity}' from ${cultureForPrompt} mythology. Key scene details include: ${promptToProcess}. The desired image quality is ${aiInputParams.imageQuality}.`;
+
+        if (settings.provider === 'stable-diffusion') {
+            const imageUrl = await generateImageWithStableDiffusionClientAction({
+                prompt: fullPrompt,
+                aspectRatio: aiInputParams.aspectRatio,
+                imageQuality: aiInputParams.imageQuality
+            });
+            imageResult = { imageUrl, prompt: fullPrompt };
+        } else {
+            imageResult = await generateMythImageAction(aiInputParams);
+        }
         
-        const imageResult = await generateMythImageAction(aiInputParams);
         const creationResult = await addCreation('generated', creationName, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
         
         if (!creationResult) {
@@ -650,6 +663,3 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
 
   return <Image src={imageUrl} alt={`Generated: ${name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />;
 };
-    
-
-    
