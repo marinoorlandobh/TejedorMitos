@@ -75,7 +75,7 @@ async function generateWithGoogleAI(prompt: string, aspectRatio: string) {
 }
 
 async function generateWithStableDiffusion(prompt: string, input: GenerateMythImageInput) {
-    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL || 'http://127.0.0.1:7860';
+    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL || 'http://host.docker.internal:7860';
     
     const dimensions = mapAspectRatioToDimensions(input.aspectRatio);
     const steps = mapQualityToSteps(input.imageQuality);
@@ -99,6 +99,7 @@ async function generateWithStableDiffusion(prompt: string, input: GenerateMythIm
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
+            cache: 'no-store',
         });
 
         if (!response.ok) {
