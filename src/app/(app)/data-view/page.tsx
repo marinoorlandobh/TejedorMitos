@@ -17,6 +17,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { translateTextAction } from '@/lib/actions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 interface EnrichedCreation extends Creation {
     textOutput?: TextOutputModel;
@@ -63,6 +65,7 @@ export default function DataViewPage() {
     const [editingValue, setEditingValue] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isTranslating, setIsTranslating] = useState(false);
+    const [translationFilter, setTranslationFilter] = useState<'all' | 'translated' | 'untranslated'>('all');
 
 
     useEffect(() => {
@@ -87,16 +90,23 @@ export default function DataViewPage() {
 
 
     const filteredCreations = useMemo(() => {
-        if (!searchTerm) return enrichedCreations;
+        const creationsAfterTranslationFilter = enrichedCreations.filter(c => {
+            if (translationFilter === 'translated') return c.isTranslated;
+            if (translationFilter === 'untranslated') return !c.isTranslated;
+            return true; // 'all'
+        });
+
+        if (!searchTerm) return creationsAfterTranslationFilter;
+        
         const lowercasedFilter = searchTerm.toLowerCase();
-        return enrichedCreations.filter(c => 
+        return creationsAfterTranslationFilter.filter(c => 
             c.name.toLowerCase().includes(lowercasedFilter) ||
             c.type.toLowerCase().includes(lowercasedFilter) ||
             getCulture(c).toLowerCase().includes(lowercasedFilter) ||
             getEntity(c).toLowerCase().includes(lowercasedFilter) ||
             getFullDetails(c).toLowerCase().includes(lowercasedFilter)
         );
-    }, [searchTerm, enrichedCreations]);
+    }, [searchTerm, enrichedCreations, translationFilter]);
     
     const handleExportToCsv = () => {
         if (filteredCreations.length === 0) {
@@ -249,6 +259,16 @@ export default function DataViewPage() {
                                         />
                                     </div>
                                 </div>
+                                <Select value={translationFilter} onValueChange={(value: 'all' | 'translated' | 'untranslated') => setTranslationFilter(value)}>
+                                    <SelectTrigger className="w-full sm:w-[200px]">
+                                        <SelectValue placeholder="Filtrar por traducción" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos</SelectItem>
+                                        <SelectItem value="translated">Solo Traducidos</SelectItem>
+                                        <SelectItem value="untranslated">Solo No Traducidos</SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <Button onClick={handleExportToCsv} className="w-full sm:w-auto">
                                     <Download className="mr-2 h-4 w-4"/>
                                     Copiar Tabla como CSV
