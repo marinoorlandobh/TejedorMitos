@@ -17,7 +17,7 @@ import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
 import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
-import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
+import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -49,6 +49,7 @@ const batchCreateSchema = z.object({
   style: z.string().min(1, "El estilo visual es obligatorio."),
   aspectRatio: z.string().min(1, "La relación de aspecto es obligatoria."),
   imageQuality: z.string().min(1, "La calidad de imagen es obligatoria."),
+  provider: z.enum(['google-ai', 'stable-diffusion']).default('google-ai'),
 });
 
 type BatchCreateFormData = z.infer<typeof batchCreateSchema>;
@@ -83,6 +84,7 @@ export default function BatchCreatePage() {
       style: IMAGE_STYLES[0],
       aspectRatio: ASPECT_RATIOS[0],
       imageQuality: IMAGE_QUALITIES[0],
+      provider: 'google-ai',
     },
   });
   
@@ -177,6 +179,7 @@ export default function BatchCreatePage() {
             style: settings.style,
             aspectRatio: settings.aspectRatio,
             imageQuality: settings.imageQuality,
+            provider: settings.provider,
         };
         
         const imageResult = await generateMythImageAction(aiInputParams);
@@ -471,6 +474,26 @@ export default function BatchCreatePage() {
                       )}
                     />
                   </div>
+                  <FormField
+                      control={form.control}
+                      name="provider"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Motor de Generación</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger><SelectValue placeholder="Selecciona un motor" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {IMAGE_PROVIDERS.map(provider => (
+                                <SelectItem key={provider.id} value={provider.id}>{provider.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   <div className="flex w-full items-center gap-2">
                     <Button type="submit" disabled={isProcessingBatch} className="flex-grow">
                       {isProcessingBatch ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
@@ -630,4 +653,3 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
     
 
     
-

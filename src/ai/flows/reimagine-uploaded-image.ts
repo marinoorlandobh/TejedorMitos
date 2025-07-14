@@ -9,6 +9,7 @@
  */
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { mapAspectRatioToDimensions, mapQualityToSteps } from '@/lib/utils';
 
 const ReimagineUploadedImageInputSchema = z.object({
   originalImage: z
@@ -22,6 +23,7 @@ const ReimagineUploadedImageInputSchema = z.object({
   visualStyle: z.string().describe('The new visual style for the reimagined image.'),
   aspectRatio: z.string().describe('The aspect ratio for the reimagined image.'),
   imageQuality: z.string().describe('The quality of the reimagined image.'),
+  provider: z.enum(['google-ai', 'stable-diffusion']).describe('The image generation provider to use.'),
 });
 
 export type ReimagineUploadedImageInput = z.infer<typeof ReimagineUploadedImageInputSchema>;
@@ -63,23 +65,13 @@ const reimagineImagePrompt = ai.definePrompt({
   Derived Prompt:`,
 });
 
-const reimagineUploadedImageFlow = ai.defineFlow(
-  {
-    name: 'reimagineUploadedImageFlow',
-    inputSchema: ReimagineUploadedImageInputSchema,
-    outputSchema: ReimagineUploadedImageOutputSchema,
-  },
-  async input => {
-    const {output: {derivedPrompt}} = await reimagineImagePrompt(input);
-    const aspectRatioForApi = input.aspectRatio.split(' ')[0];
-
+async function reimagineWithGoogleAI(derivedPrompt: string, input: ReimagineUploadedImageInput) {
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: [
         {media: {url: input.originalImage}},
         {text: derivedPrompt},
       ],
-      aspectRatio: aspectRatioForApi,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
         safetySettings: [
@@ -108,7 +100,80 @@ const reimagineUploadedImageFlow = ai.defineFlow(
         'La reimaginación de la imagen falló, probablemente por infringir las políticas de seguridad. Intenta con un prompt o estilo diferente que sea menos explícito en su descripción.'
       );
     }
+    return media.url;
+}
 
-    return {reimaginedImage: media.url, derivedPrompt};
+
+async function reimagineWithStableDiffusion(derivedPrompt: string, input: ReimagineUploadedImageInput) {
+    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL;
+    if (!apiUrl) {
+        throw new Error("La URL de la API de Stable Diffusion no está configurada. Por favor, define NEXT_PUBLIC_STABLE_DIFFUSION_API_URL en tu archivo .env.local.");
+    }
+
+    const dimensions = mapAspectRatioToDimensions(input.aspectRatio);
+    const steps = mapQualityToSteps(input.imageQuality);
+
+    const payload = {
+        init_images: [input.originalImage],
+        prompt: derivedPrompt,
+        negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
+        seed: -1,
+        sampler_name: "DPM++ 2M Karras",
+        batch_size: 1,
+        n_iter: 1,
+        steps: steps,
+        cfg_scale: 7,
+        width: dimensions.width,
+        height: dimensions.height,
+        restore_faces: true,
+        denoising_strength: 0.75, // Important for img2img
+    };
+
+    try {
+        const response = await fetch(`${apiUrl}/sdapi/v1/img2img`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error de la API de Stable Diffusion (img2img): ${response.status} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.images || result.images.length === 0) {
+            throw new Error("La API de Stable Diffusion (img2img) no devolvió ninguna imagen.");
+        }
+
+        return `data:image/png;base64,${result.images[0]}`;
+    } catch (e: any) {
+        if (e.message.includes('fetch failed')) {
+            throw new Error(`No se pudo conectar a la API de Stable Diffusion en ${apiUrl}. ¿Está el servidor en ejecución con el argumento --api?`);
+        }
+        throw e;
+    }
+}
+
+
+const reimagineUploadedImageFlow = ai.defineFlow(
+  {
+    name: 'reimagineUploadedImageFlow',
+    inputSchema: ReimagineUploadedImageInputSchema,
+    outputSchema: ReimagineUploadedImageOutputSchema,
+  },
+  async input => {
+    const {output: {derivedPrompt}} = await reimagineImagePrompt(input);
+    
+    let reimaginedImage: string;
+
+    if (input.provider === 'stable-diffusion') {
+        reimaginedImage = await reimagineWithStableDiffusion(derivedPrompt, input);
+    } else {
+        reimaginedImage = await reimagineWithGoogleAI(derivedPrompt, input);
+    }
+
+    return {reimaginedImage, derivedPrompt};
   }
 );

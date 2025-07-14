@@ -22,6 +22,7 @@ export interface GeneratedParams {
   style: string;
   aspectRatio: string;
   imageQuality: string;
+  provider: 'google-ai' | 'stable-diffusion';
 }
 
 export interface AnalyzedParams {
@@ -37,6 +38,7 @@ export interface ReimaginedParams {
   visualStyle: string;
   aspectRatio: string;
   imageQuality: string;
+  provider: 'google-ai' | 'stable-diffusion';
 }
 
 export interface ImageDataModel {
@@ -69,6 +71,11 @@ export const MYTHOLOGICAL_CULTURES = ["Azteca", "Celta", "China", "Egipcia", "Gr
 export const IMAGE_STYLES = ["Fotorrealista", "Anime", "Pintura al Óleo", "Acuarela", "Abstracto", "Pixel Art", "Cómic", "Steampunk", "Cyberpunk", "Arte Fantástico"];
 export const ASPECT_RATIOS = ["1:1 (Cuadrado)", "16:9 (Panorámico)", "9:16 (Vertical)", "4:3 (Estándar)", "3:4 (Vertical Estándar)"];
 export const IMAGE_QUALITIES = ["Estándar", "Alta", "Ultra"];
+export const IMAGE_PROVIDERS = [
+  { id: 'google-ai', name: 'Google AI (Recomendado)' },
+  { id: 'stable-diffusion', name: 'Stable Diffusion (Local)' },
+] as const;
+
 
 // Helper to map aspect ratio string to numerical values if needed for generation
 export const mapAspectRatio = (aspectRatioString: string): { width: number, height: number } | undefined => {

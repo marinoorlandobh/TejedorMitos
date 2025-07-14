@@ -18,7 +18,7 @@ import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
 import { generateMythImageAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
-import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
+import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface CreateFromPromptDialogProps {
@@ -36,6 +36,7 @@ const createMythSchema = z.object({
   style: z.string().min(1, "El estilo visual es obligatorio."),
   aspectRatio: z.string().min(1, "La relación de aspecto es obligatoria."),
   imageQuality: z.string().min(1, "La calidad de imagen es obligatoria."),
+  provider: z.enum(['google-ai', 'stable-diffusion']).default('google-ai'),
 });
 
 type CreateMythFormData = z.infer<typeof createMythSchema>;
@@ -58,6 +59,7 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
       style: IMAGE_STYLES[0],
       aspectRatio: ASPECT_RATIOS[0],
       imageQuality: IMAGE_QUALITIES[0],
+      provider: 'google-ai',
     },
   });
 
@@ -72,6 +74,7 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
       style: IMAGE_STYLES[0],
       aspectRatio: ASPECT_RATIOS[0],
       imageQuality: IMAGE_QUALITIES[0],
+      provider: 'google-ai',
     });
     setGeneratedImage(null);
     setGeneratedPrompt(null);
@@ -91,6 +94,7 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
       style: data.style,
       aspectRatio: data.aspectRatio,
       imageQuality: data.imageQuality,
+      provider: data.provider,
     };
 
     try {
@@ -228,20 +232,42 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
                       )}
                     />
                   </div>
-                  <FormField
-                      control={form.control}
-                      name="imageQuality"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Calidad de Imagen</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Selecciona calidad" /></SelectTrigger></FormControl>
-                            <SelectContent>{IMAGE_QUALITIES.map(q => (<SelectItem key={q} value={q}>{q}</SelectItem>))}</SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                          control={form.control}
+                          name="imageQuality"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Calidad de Imagen</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Selecciona calidad" /></SelectTrigger></FormControl>
+                                <SelectContent>{IMAGE_QUALITIES.map(q => (<SelectItem key={q} value={q}>{q}</SelectItem>))}</SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                       <FormField
+                          control={form.control}
+                          name="provider"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Motor de Generación</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Selecciona un motor" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {IMAGE_PROVIDERS.map(provider => (
+                                    <SelectItem key={provider.id} value={provider.id}>{provider.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                  </div>
                   <Button type="submit" disabled={isLoading} className="w-full">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                     Tejer Mi Mito

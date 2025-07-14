@@ -17,7 +17,7 @@ import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
 import { reimagineUploadedImageAction } from '@/lib/actions';
 import type { ReimaginedParams } from '@/lib/types';
-import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
+import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const reimagineImageSchema = z.object({
@@ -29,6 +29,7 @@ const reimagineImageSchema = z.object({
   visualStyle: z.string().min(1, "El nuevo estilo visual es obligatorio."),
   aspectRatio: z.string().min(1, "La nueva relación de aspecto es obligatoria."),
   imageQuality: z.string().min(1, "La nueva calidad de imagen es obligatoria."),
+  provider: z.enum(['google-ai', 'stable-diffusion']).default('google-ai'),
 });
 
 type ReimagineImageFormData = z.infer<typeof reimagineImageSchema>;
@@ -63,6 +64,7 @@ export default function ReimagineImagePage() {
       visualStyle: IMAGE_STYLES[0],
       aspectRatio: ASPECT_RATIOS[0],
       imageQuality: IMAGE_QUALITIES[0],
+      provider: 'google-ai',
     },
   });
 
@@ -111,6 +113,7 @@ export default function ReimagineImagePage() {
       visualStyle: data.visualStyle,
       aspectRatio: data.aspectRatio,
       imageQuality: data.imageQuality,
+      provider: data.provider,
     };
 
     try {
@@ -290,20 +293,42 @@ export default function ReimagineImagePage() {
                       )}
                     />
                   </div>
-                   <FormField
-                      control={form.control}
-                      name="imageQuality"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nueva Calidad de Imagen</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Selecciona nueva calidad" /></SelectTrigger></FormControl>
-                            <SelectContent>{IMAGE_QUALITIES.map(q => (<SelectItem key={q} value={q}>{q}</SelectItem>))}</SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="imageQuality"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Nueva Calidad de Imagen</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona nueva calidad" /></SelectTrigger></FormControl>
+                                    <SelectContent>{IMAGE_QUALITIES.map(q => (<SelectItem key={q} value={q}>{q}</SelectItem>))}</SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                        <FormField
+                            control={form.control}
+                            name="provider"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Motor de Generación</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Selecciona un motor" /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                    {IMAGE_PROVIDERS.map(provider => (
+                                        <SelectItem key={provider.id} value={provider.id}>{provider.name}</SelectItem>
+                                    ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                   </div>
                   <Button type="submit" disabled={isLoading || !originalImagePreview} className="w-full">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Palette className="mr-2 h-4 w-4" />}
                     Reimaginar Imagen
