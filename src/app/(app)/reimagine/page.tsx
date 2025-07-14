@@ -86,11 +86,11 @@ export default function ReimagineImagePage() {
     }
   };
 
-  async function reimagineWithStableDiffusion(originalImage: string, params: ReimaginedParams) {
+  async function reimagineWithStableDiffusion(originalImage: string, params: ReimaginedParams, fullReimagineParams: ReimagineImageFormData) {
     const apiUrl = 'http://127.0.0.1:7860';
     
     // We need to derive a prompt using the Google AI flow first, even for SD
-    const { derivedPrompt } = await reimagineUploadedImageAction({
+    const { derivedPrompt: sdPrompt } = await reimagineUploadedImageAction({
         originalImage: originalImage,
         ...params
     });
@@ -103,7 +103,7 @@ export default function ReimagineImagePage() {
     
     const payload = {
         init_images: [base64Image],
-        prompt: derivedPrompt,
+        prompt: sdPrompt,
         negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
         seed: -1,
         sampler_name: "DPM++ 2M Karras",
@@ -122,7 +122,7 @@ export default function ReimagineImagePage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-            cache: 'no-store',
+            mode: 'cors',
         });
 
         if (!response.ok) {
@@ -136,10 +136,10 @@ export default function ReimagineImagePage() {
             throw new Error("La API de Stable Diffusion (img2img) no devolvió ninguna imagen.");
         }
 
-        return { reimaginedImage: `data:image/png;base64,${result.images[0]}`, derivedPrompt };
+        return { reimaginedImage: `data:image/png;base64,${result.images[0]}`, derivedPrompt: sdPrompt };
     } catch (e: any) {
-        if (e.message.includes('fetch failed')) {
-            throw new Error(`No se pudo conectar a la API de Stable Diffusion en ${apiUrl}. ¿Está el servidor en ejecución con el argumento --api?`);
+        if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
+             throw new Error(`Error de red o CORS. Asegúrate de que Stable Diffusion Web UI se ejecuta con '--cors-allow-origins="*"' y que puedes acceder a ${apiUrl}/docs`);
         }
         throw e;
     }
@@ -182,7 +182,7 @@ export default function ReimagineImagePage() {
       let result;
       
       if (data.provider === 'stable-diffusion') {
-        result = await reimagineWithStableDiffusion(originalImageDataUri, aiInputParams);
+        result = await reimagineWithStableDiffusion(originalImageDataUri, aiInputParams, data);
       } else {
         result = await reimagineUploadedImageAction({
           originalImage: originalImageDataUri,
@@ -463,3 +463,5 @@ export default function ReimagineImagePage() {
     </ScrollArea>
   );
 }
+
+    

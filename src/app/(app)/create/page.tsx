@@ -85,7 +85,7 @@ export default function CreateMythPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-            cache: 'no-store',
+            mode: 'cors', // Explicitly set mode
         });
 
         if (!response.ok) {
@@ -101,8 +101,8 @@ export default function CreateMythPage() {
 
         return { imageUrl: `data:image/png;base64,${result.images[0]}`, prompt };
     } catch (e: any) {
-        if (e.message.includes('fetch failed')) {
-            throw new Error(`No se pudo conectar a la API de Stable Diffusion en ${apiUrl}. ¿Está el servidor en ejecución con el argumento --api?`);
+        if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
+             throw new Error(`Error de red o CORS. Asegúrate de que Stable Diffusion Web UI se ejecuta con '--cors-allow-origins="*"' y que puedes acceder a ${apiUrl}/docs`);
         }
         throw e;
     }
@@ -405,3 +405,5 @@ export default function CreateMythPage() {
     </ScrollArea>
   );
 }
+
+    
