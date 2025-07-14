@@ -290,6 +290,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const creationsData = await db.creations.toArray();
       const textOutputData = await db.textOutputStore.toArray();
       const allImageData = await db.imageDataStore.toArray();
+      const imageCount = allImageData.length;
 
       const imageDataMetadata = [];
       const imagesFolder = zip.folder("images");
@@ -324,7 +325,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `mythweaver_backup_${new Date().toISOString().split('T')[0]}.zip`;
+      a.download = `mythweaver_backup_${imageCount}_images_${new Date().toISOString().split('T')[0]}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
