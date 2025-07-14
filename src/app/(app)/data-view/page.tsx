@@ -324,6 +324,5 @@ export default function DataViewPage() {
                 )}
             </div>
         </ScrollArea>
-    )
-
-    
+    );
+}
