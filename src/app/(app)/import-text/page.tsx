@@ -2,11 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
-import { FileSignature, UploadCloud, Loader2, Sparkles, Wand2, Copy, X } from 'lucide-react';
-
-// Set worker path. IMPORTANT: This is needed for pdf.js to work in the browser.
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+import { FileText as FileTextIcon, UploadCloud, Loader2, Sparkles, Wand2, Copy, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -19,10 +15,10 @@ import { extractMythologiesAction } from '@/lib/actions';
 import { CreateFromPromptDialog } from '@/components/CreateFromPromptDialog';
 import { Badge } from '@/components/ui/badge';
 
-export default function ImportPdfPage() {
+export default function ImportTextPage() {
     const [isLoading, setIsLoading] = useState(false);
-    const [isProcessingPdf, setIsProcessingPdf] = useState(false);
-    const [pdfFileName, setPdfFileName] = useState<string | null>(null);
+    const [isProcessingFile, setIsProcessingFile] = useState(false);
+    const [fileName, setFileName] = useState<string | null>(null);
     const [extractedText, setExtractedText] = useState<string | null>(null);
     const [analysisResult, setAnalysisResult] = useState<ExtractMythologiesOutput | null>(null);
     const { toast } = useToast();
@@ -33,16 +29,16 @@ export default function ImportPdfPage() {
 
     useEffect(() => {
         // Cargar resultados cacheados desde localStorage al montar la página
-        const cachedData = localStorage.getItem('mythWeaverImportCache');
+        const cachedData = localStorage.getItem('mythWeaverTextImportCache');
         if (cachedData) {
             try {
-                const { fileName, text, results } = JSON.parse(cachedData);
-                if (fileName) setPdfFileName(fileName);
+                const { fileName: cachedFileName, text, results } = JSON.parse(cachedData);
+                if (cachedFileName) setFileName(cachedFileName);
                 if (text) setExtractedText(text);
                 if (results) setAnalysisResult(results);
             } catch (error) {
-                console.error("Error al cargar caché de importación:", error);
-                localStorage.removeItem('mythWeaverImportCache');
+                console.error("Error al cargar caché de importación de texto:", error);
+                localStorage.removeItem('mythWeaverTextImportCache');
             }
         }
     }, []);
@@ -50,41 +46,34 @@ export default function ImportPdfPage() {
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (file && file.type === 'application/pdf') {
-            setPdfFileName(file.name);
+        if (file && (file.type === 'text/plain' || file.type === 'text/markdown' || file.name.endsWith('.txt') || file.name.endsWith('.md'))) {
+            setFileName(file.name);
             setAnalysisResult(null);
             setExtractedText(null);
-            localStorage.removeItem('mythWeaverImportCache'); // Limpiar caché anterior
-            setIsProcessingPdf(true);
-            toast({ title: "Procesando PDF...", description: "Extrayendo texto del archivo." });
+            localStorage.removeItem('mythWeaverTextImportCache'); // Limpiar caché anterior
+            setIsProcessingFile(true);
+            toast({ title: "Procesando archivo...", description: "Extrayendo texto del archivo." });
             try {
-                const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-                let text = '';
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const content = await page.getTextContent();
-                    text += content.items.map((item: any) => item.str).join(' ');
-                }
+                const text = await file.text();
                 setExtractedText(text);
-                localStorage.setItem('mythWeaverImportCache', JSON.stringify({ fileName: file.name, text }));
-                toast({ title: "Texto Extraído", description: "El PDF se ha procesado. Ahora puedes generar los prompts." });
+                localStorage.setItem('mythWeaverTextImportCache', JSON.stringify({ fileName: file.name, text }));
+                toast({ title: "Texto Extraído", description: "El archivo se ha procesado. Ahora puedes generar los prompts." });
             } catch (error) {
-                console.error("Error extracting text from PDF:", error);
-                toast({ variant: "destructive", title: "Error", description: "No se pudo extraer el texto del PDF." });
-                setPdfFileName(null);
+                console.error("Error extracting text from file:", error);
+                toast({ variant: "destructive", title: "Error", description: "No se pudo extraer el texto del archivo." });
+                setFileName(null);
             } finally {
-                setIsProcessingPdf(false);
+                setIsProcessingFile(false);
             }
         } else if (file) {
-            toast({ variant: "destructive", title: "Archivo no válido", description: "Por favor, selecciona un archivo PDF." });
-            setPdfFileName(null);
+            toast({ variant: "destructive", title: "Archivo no válido", description: "Por favor, selecciona un archivo .txt o .md." });
+            setFileName(null);
         }
     };
 
     const handleAnalyzeText = async () => {
         if (!extractedText) {
-            toast({ variant: "destructive", title: "No hay texto", description: "Primero extrae el texto de un PDF." });
+            toast({ variant: "destructive", title: "No hay texto", description: "Primero carga un archivo de texto." });
             return;
         }
         setIsLoading(true);
@@ -92,8 +81,8 @@ export default function ImportPdfPage() {
         try {
             const result = await extractMythologiesAction({ text: extractedText });
             setAnalysisResult(result);
-            const cachedData = JSON.parse(localStorage.getItem('mythWeaverImportCache') || '{}');
-            localStorage.setItem('mythWeaverImportCache', JSON.stringify({ ...cachedData, results: result }));
+            const cachedData = JSON.parse(localStorage.getItem('mythWeaverTextImportCache') || '{}');
+            localStorage.setItem('mythWeaverTextImportCache', JSON.stringify({ ...cachedData, results: result }));
             toast({ title: "¡Análisis Completado!", description: "Se han generado mitologías y prompts a partir del texto." });
         } catch (error: any) {
             console.error("Error analyzing text:", error);
@@ -104,14 +93,14 @@ export default function ImportPdfPage() {
     };
     
     const handleClear = () => {
-        setPdfFileName(null);
+        setFileName(null);
         setExtractedText(null);
         setAnalysisResult(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
-        localStorage.removeItem('mythWeaverImportCache');
-        toast({ title: "Limpiado", description: "Se ha borrado el PDF cargado y sus resultados." });
+        localStorage.removeItem('mythWeaverTextImportCache');
+        toast({ title: "Limpiado", description: "Se ha borrado el archivo cargado y sus resultados." });
     };
 
     const copyToClipboard = (text: string) => {
@@ -154,11 +143,11 @@ export default function ImportPdfPage() {
                 <div className="container mx-auto p-4 md:p-8">
                     <header className="mb-8">
                         <h1 className="text-4xl font-headline font-bold text-primary flex items-center">
-                            <FileSignature className="mr-3 h-10 w-10" />
-                            Importar desde PDF
+                            <FileTextIcon className="mr-3 h-10 w-10" />
+                            Importar desde Archivo de Texto
                         </h1>
                         <p className="text-muted-foreground mt-2 text-lg">
-                            Sube un archivo PDF para extraer textos y generar automáticamente mitologías y prompts.
+                            Sube un archivo .txt o .md para extraer textos y generar automáticamente mitologías y prompts.
                         </p>
                     </header>
 
@@ -167,11 +156,11 @@ export default function ImportPdfPage() {
                             <CardHeader>
                                 <div className="flex justify-between items-start gap-2">
                                     <div>
-                                        <CardTitle>1. Subir PDF</CardTitle>
-                                        <CardDescription>Selecciona un archivo PDF para comenzar.</CardDescription>
+                                        <CardTitle>1. Subir Archivo</CardTitle>
+                                        <CardDescription>Selecciona un archivo .txt o .md para comenzar.</CardDescription>
                                     </div>
-                                    {pdfFileName && !isProcessingPdf && (
-                                        <Button variant="ghost" size="icon" onClick={handleClear} title="Limpiar PDF actual">
+                                    {fileName && !isProcessingFile && (
+                                        <Button variant="ghost" size="icon" onClick={handleClear} title="Limpiar archivo actual">
                                             <X className="h-5 w-5" />
                                             <span className="sr-only">Limpiar</span>
                                         </Button>
@@ -180,33 +169,33 @@ export default function ImportPdfPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="flex items-center justify-center w-full">
-                                    <label htmlFor="pdf-upload" className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer ${pdfFileName ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
+                                    <label htmlFor="text-upload" className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer ${fileName ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-2">
-                                            {isProcessingPdf ? (
+                                            {isProcessingFile ? (
                                                 <>
                                                     <Loader2 className="w-10 h-10 mb-3 text-primary animate-spin" />
                                                     <p className="mb-2 text-sm text-primary"><span className="font-semibold">Procesando...</span></p>
                                                 </>
-                                            ) : pdfFileName ? (
+                                            ) : fileName ? (
                                                 <>
-                                                    <FileSignature className="w-10 h-10 mb-3 text-primary" />
-                                                    <p className="mb-2 text-sm text-primary font-semibold truncate max-w-full">{pdfFileName}</p>
+                                                    <FileTextIcon className="w-10 h-10 mb-3 text-primary" />
+                                                    <p className="mb-2 text-sm text-primary font-semibold truncate max-w-full">{fileName}</p>
                                                     <p className="text-xs text-muted-foreground">¡Listo para analizar!</p>
                                                 </>
                                             ) : (
                                                 <>
                                                     <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
                                                     <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Haz clic para subir</span> o arrastra y suelta</p>
-                                                    <p className="text-xs text-muted-foreground">Solo archivos .PDF</p>
+                                                    <p className="text-xs text-muted-foreground">Archivos .txt y .md</p>
                                                 </>
                                             )}
                                         </div>
-                                        <Input id="pdf-upload" type="file" className="hidden" accept="application/pdf" onChange={handleFileChange} ref={fileInputRef} disabled={isProcessingPdf} />
+                                        <Input id="text-upload" type="file" className="hidden" accept=".txt,.md,text/plain,text/markdown" onChange={handleFileChange} ref={fileInputRef} disabled={isProcessingFile} />
                                     </label>
                                 </div>
                             </CardContent>
                             <CardFooter>
-                                <Button onClick={handleAnalyzeText} disabled={!extractedText || isLoading || isProcessingPdf} className="w-full">
+                                <Button onClick={handleAnalyzeText} disabled={!extractedText || isLoading || isProcessingFile} className="w-full">
                                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                     2. Generar Prompts desde el Texto
                                 </Button>
@@ -270,7 +259,7 @@ export default function ImportPdfPage() {
                                     {!isLoading && analysisResult && analysisResult.extractedData.length === 0 && (
                                         <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg h-full flex flex-col justify-center items-center">
                                             <Wand2 className="h-12 w-12 mx-auto mb-2" />
-                                            <p>La IA no pudo extraer mitologías estructuradas del texto. Intenta con otro PDF.</p>
+                                            <p>La IA no pudo extraer mitologías estructuradas del texto. Intenta con otro archivo.</p>
                                         </div>
                                     )}
                                     {!isLoading && !analysisResult && (
