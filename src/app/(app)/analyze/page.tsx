@@ -5,7 +5,7 @@ import React, { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { ImageIcon, Sparkles, Loader2, UploadCloud, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ImageIcon, Sparkles, Loader2, UploadCloud, CheckCircle, AlertTriangle, Copy } from 'lucide-react';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -75,6 +75,11 @@ export default function AnalyzeImagePage() {
       form.setValue("imageFile", new DataTransfer().files); 
       setUploadedImagePreview(null);
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "¡Copiado!", description: "Análisis copiado al portapapeles." });
   };
   
 
@@ -291,9 +296,14 @@ export default function AnalyzeImagePage() {
                     <p className="text-muted-foreground p-2 bg-muted rounded-md">{analysisResult.visualStyle}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Análisis Detallado:</h3>
-                    <ScrollArea className="h-48">
-                      <p className="text-muted-foreground p-2 bg-muted rounded-md whitespace-pre-wrap">{analysisResult.analysis}</p>
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="font-semibold text-lg">Análisis Detallado:</h3>
+                       <Button variant="outline" size="sm" onClick={() => copyToClipboard(analysisResult.analysis)}>
+                        <Copy className="mr-2 h-4 w-4" /> Copiar Análisis
+                      </Button>
+                    </div>
+                    <ScrollArea className="h-48 border rounded-md">
+                      <p className="text-muted-foreground p-3 bg-muted/30 whitespace-pre-wrap">{analysisResult.analysis}</p>
                     </ScrollArea>
                   </div>
                 </div>
