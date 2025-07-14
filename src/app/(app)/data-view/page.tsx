@@ -217,10 +217,13 @@ export default function DataViewPage() {
         <ScrollArea className="h-full">
             <div className="container mx-auto p-4 md:p-8">
                 <header className="mb-8">
-                    <h1 className="text-4xl font-headline font-bold text-primary flex items-center">
-                        <List className="mr-3 h-10 w-10" />
-                        Vista de Datos
-                    </h1>
+                    <div className="flex items-center gap-4">
+                        <h1 className="text-4xl font-headline font-bold text-primary flex items-center">
+                            <List className="mr-3 h-10 w-10" />
+                            Vista de Datos
+                        </h1>
+                        <Badge variant="secondary" className="text-lg">{filteredCreations.length}</Badge>
+                    </div>
                     <p className="text-muted-foreground mt-2 text-lg">
                         Explora, edita, traduce y exporta toda la información textual de tus creaciones.
                     </p>
