@@ -20,6 +20,7 @@ import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Helper function to add a timeout to a promise
 const withTimeout = <T,>(promise: Promise<T>, ms: number, timeoutError = new Error(`La operación tardó más de ${ms / 1000} segundos y fue cancelada.`)): Promise<T> => {
@@ -168,6 +169,7 @@ export default function BatchCreatePage() {
 
     const runSinglePromptProcessing = async (promptToProcess: string, cultureForPrompt: string, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
         const { creationName, entity } = await extractDetailsFromPromptAction({ promptText: promptToProcess });
+        
         const aiInputParams: GeneratedParams = {
             culture: cultureForPrompt,
             entity: entity,
@@ -176,6 +178,7 @@ export default function BatchCreatePage() {
             aspectRatio: settings.aspectRatio,
             imageQuality: settings.imageQuality,
         };
+        
         const imageResult = await generateMythImageAction(aiInputParams);
         const creationResult = await addCreation('generated', creationName, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
         
@@ -370,6 +373,7 @@ export default function BatchCreatePage() {
   
   const hasFailedOrPendingItems = results.some(r => r.status === 'error' || r.status === 'pending');
   const hasSuccessfulItems = results.some(r => r.status === 'success');
+  const successfulCount = results.filter(r => r.status === 'success').length;
 
   return (
     <ScrollArea className="h-full">
@@ -491,7 +495,20 @@ export default function BatchCreatePage() {
                         <div className="flex items-center gap-2">
                            <CardTitle>2. Progreso y Resultados</CardTitle>
                            {results.length > 0 && (
-                                <Badge variant="secondary">{results.length}</Badge>
+                                <>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Badge variant="secondary">{results.length} Total</Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent><p>Número total de prompts en el lote.</p></TooltipContent>
+                                    </Tooltip>
+                                     <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Badge variant="default" className="bg-green-600 hover:bg-green-700">{successfulCount} Exitosos</Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent><p>Número de imágenes generadas con éxito.</p></TooltipContent>
+                                    </Tooltip>
+                                </>
                             )}
                         </div>
                         <CardDescription>El estado de cada creación aparecerá aquí.</CardDescription>
@@ -613,3 +630,4 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
     
 
     
+
