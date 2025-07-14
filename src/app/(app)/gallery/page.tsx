@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
 import { CreateFromPromptDialog } from '@/components/CreateFromPromptDialog';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { Label } from '@/components/ui/label';
-import { translateTextAction, generateMythImageAction, reimagineUploadedImageAction } from '@/lib/actions';
+import { generateMythImageAction, reimagineUploadedImageAction } from '@/lib/actions';
 
 
 interface CreationFull extends Creation {
@@ -847,7 +847,7 @@ export default function GalleryPage() {
                           </>;
                         })()}
                         {(selectedCreation.params as any).provider && (
-                          <p><strong>Motor:</strong> {IMAGE_PROVIDERS.find(prov => prov.id === (selectedCreation.params as any).provider)?.name || (selectedCreation.params as any).provider}</p>
+                          <p><strong>Motor:</strong> {IMAGE_PROVIDERS.find(prov => prov.id === (selectedCreation.params as any).provider)?.name || (selectedCreation.params as any).provider || 'N/D'}</p>
                         )}
                         <p><strong>Calidad:</strong> {(selectedCreation.params as any).imageQuality || 'N/D'}</p>
                         <p><strong>Relación de Aspecto:</strong> {(selectedCreation.params as any).aspectRatio || 'N/D'}</p>
