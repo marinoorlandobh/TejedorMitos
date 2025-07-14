@@ -227,9 +227,19 @@ export default function BatchCreatePage() {
         let entity = '';
 
         if (settings.provider === 'google-ai') {
-            const details = await extractDetailsFromPromptAction({ promptText: promptToProcess });
-            creationName = details.creationName;
-            entity = details.entity;
+            try {
+                const details = await extractDetailsFromPromptAction({ promptText: promptToProcess });
+                creationName = details.creationName;
+                entity = details.entity;
+            } catch (nameError: any) {
+                // If name extraction fails, we can still proceed with a generic name
+                console.error(`Could not extract name for prompt: "${promptToProcess}". Error:`, nameError);
+                creationName = `Creación en Lote #${index + 1}`;
+                entity = promptToProcess.split(' ').slice(0, 3).join(' ');
+                // We will add the error to the final result state later.
+                // For now, we throw it so the main catch block can handle it.
+                throw new Error(`Fallo en la extracción de nombre: ${nameError.message}`);
+            }
         } else {
             // For local providers, use a generic naming scheme
             creationName = `Creación en Lote #${index + 1}`;

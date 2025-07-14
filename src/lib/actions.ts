@@ -72,36 +72,29 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export async function extractDetailsFromPromptAction(input: ExtractDetailsInput): Promise<ExtractDetailsOutput> {
   let retries = 0;
   const maxRetries = 3;
-  let lastError: any;
 
   while (retries < maxRetries) {
     try {
       const result = await extractDetailsFromPromptFlow(input);
       return result;
     } catch (error: any) {
-      lastError = error;
       const isQuotaError = error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'));
       
-      if (isQuotaError) {
+      if (isQuotaError && retries < maxRetries - 1) {
         retries++;
-        if (retries < maxRetries) {
-          const waitTime = Math.pow(2, retries) * 1000; // 2s, 4s
-          console.log(`Quota error detected. Retrying in ${waitTime / 1000}s... (Attempt ${retries}/${maxRetries})`);
-          await delay(waitTime);
-          continue; // Continue to next iteration of the loop
-        } else {
-          // Max retries reached, throw a specific error
-          throw new Error("Se excedió la cuota de API repetidamente. Por favor, intenta de nuevo más tarde.");
-        }
+        const waitTime = Math.pow(2, retries) * 1000; // 2s, 4s
+        console.log(`Quota error detected. Retrying in ${waitTime / 1000}s... (Attempt ${retries}/${maxRetries})`);
+        await delay(waitTime);
       } else {
-        // Not a quota error, rethrow immediately
-        throw new Error(error.message || "No se pudieron extraer los detalles del prompt. Por favor, inténtalo de nuevo.");
+        // Not a retriable quota error or max retries reached, rethrow the original error.
+        console.error("Failed to extract details from prompt:", error);
+        throw new Error(error.message || "No se pudieron extraer los detalles del prompt.");
       }
     }
   }
 
   // This part should not be reachable if logic is correct, but as a fallback:
-  throw new Error(lastError?.message || "No se pudieron extraer los detalles del prompt tras varios intentos.");
+  throw new Error("No se pudieron extraer los detalles del prompt tras varios intentos.");
 }
 
 
