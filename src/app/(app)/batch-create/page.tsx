@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDescriptionComponent } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction } from '@/lib/actions';
+import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction, reimagineUploadedImageAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -175,54 +175,54 @@ export default function BatchCreatePage() {
     return lines;
   };
 
-  async function generateWithStableDiffusion(prompt: string, aspectRatio: string, imageQuality: string) {
-    const apiUrl = 'http://127.0.0.1:7860';
-    const dimensions = mapAspectRatioToDimensions(aspectRatio);
-    const steps = mapQualityToSteps(imageQuality);
+    const generateWithStableDiffusion = useCallback(async (prompt: string, aspectRatio: string, imageQuality: string) => {
+        const apiUrl = 'http://127.0.0.1:7860';
+        const dimensions = mapAspectRatioToDimensions(aspectRatio);
+        const steps = mapQualityToSteps(imageQuality);
 
-    const payload = {
-        prompt,
-        negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
-        seed: -1,
-        sampler_name: "DPM++ 2M Karras",
-        batch_size: 1,
-        n_iter: 1,
-        steps: steps,
-        cfg_scale: 7,
-        width: dimensions.width,
-        height: dimensions.height,
-        restore_faces: true,
-    };
+        const payload = {
+            prompt,
+            negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
+            seed: -1,
+            sampler_name: "DPM++ 2M Karras",
+            batch_size: 1,
+            n_iter: 1,
+            steps: steps,
+            cfg_scale: 7,
+            width: dimensions.width,
+            height: dimensions.height,
+            restore_faces: true,
+        };
 
-    try {
-        const response = await fetch(`${apiUrl}/sdapi/v1/txt2img`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            mode: 'cors',
-        });
+        try {
+            const response = await fetch(`${apiUrl}/sdapi/v1/txt2img`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                mode: 'cors',
+            });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Error de la API de Stable Diffusion: ${response.status} - ${errorText}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Error de la API de Stable Diffusion: ${response.status} - ${errorText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (!result.images || result.images.length === 0) {
+                throw new Error("La API de Stable Diffusion no devolvió ninguna imagen.");
+            }
+
+            return { imageUrl: `data:image/png;base64,${result.images[0]}`, prompt };
+        } catch (e: any) {
+            if (e.message.includes('Failed to fetch')) {
+                throw new Error(`Error de red o CORS. Asegúrate de que Stable Diffusion Web UI se ejecuta con '--cors-allow-origins="*"' y que puedes acceder a ${apiUrl}/docs`);
+            }
+            throw e;
         }
-        
-        const result = await response.json();
-        
-        if (!result.images || result.images.length === 0) {
-            throw new Error("La API de Stable Diffusion no devolvió ninguna imagen.");
-        }
+    }, []);
 
-        return { imageUrl: `data:image/png;base64,${result.images[0]}`, prompt };
-    } catch (e: any) {
-        if (e.message.includes('Failed to fetch')) {
-             throw new Error(`Error de red o CORS. Asegúrate de que Stable Diffusion Web UI se ejecuta con '--cors-allow-origins="*"' y que puedes acceder a ${apiUrl}/docs`);
-        }
-        throw e;
-    }
-  }
-
-    const runSinglePromptProcessing = async (promptToProcess: string, cultureForPrompt: string, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
+    const runSinglePromptProcessing = useCallback(async (promptToProcess: string, cultureForPrompt: string, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
         const { creationName, entity } = await extractDetailsFromPromptAction({ promptText: promptToProcess });
         
         const aiInputParams: GeneratedParams = {
@@ -251,34 +251,41 @@ export default function BatchCreatePage() {
         }
 
         return { imageId: creationResult.imageId, name: creationName };
-    };
+    }, [addCreation, generateWithStableDiffusion]);
 
 
-  const processSinglePrompt = async (index: number) => {
-    const resultToProcess = results[index];
-    if (!resultToProcess) return false;
+    const processSinglePrompt = useCallback(async (index: number) => {
+        // Use a function to get the latest state of results
+        let resultToProcess;
+        setResults(prev => {
+            resultToProcess = prev[index];
+            if (!resultToProcess) return prev;
+            return prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined } : r);
+        });
 
-    setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined } : r));
-    
-    const settings = { ...form.getValues(), provider: resultToProcess.provider };
-    const { prompt, culture } = resultToProcess;
+        // Wait a tick for state to settle, then check if we have a task
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (!resultToProcess) return false;
 
-    try {
-        const TIMEOUT_MS = 60000; 
-        const result = await withTimeout(
-            runSinglePromptProcessing(prompt, culture, settings),
-            TIMEOUT_MS
-        );
-        
-        setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageId: result.imageId, name: result.name } : r));
-        return true;
-    } catch (error: any) {
-        console.error(`Error processing prompt: ${prompt}`, error);
-        const errorMessage = error.message || "Error desconocido";
-        setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: errorMessage } : r));
-        return false;
-    }
-  };
+        const settings = { ...form.getValues(), provider: resultToProcess.provider };
+        const { prompt, culture } = resultToProcess;
+
+        try {
+            const TIMEOUT_MS = 60000; 
+            const result = await withTimeout(
+                runSinglePromptProcessing(prompt, culture, settings),
+                TIMEOUT_MS
+            );
+            
+            setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageId: result.imageId, name: result.name } : r));
+            return true;
+        } catch (error: any) {
+            console.error(`Error processing prompt: ${prompt}`, error);
+            const errorMessage = error.message || "Error desconocido";
+            setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: errorMessage } : r));
+            return false;
+        }
+    }, [form, runSinglePromptProcessing]);
   
   const getTaskForLine = (line: string, defaultCulture: string) => {
     let culture = defaultCulture;
@@ -314,33 +321,42 @@ export default function BatchCreatePage() {
 
     const tasks = promptLines.map(line => getTaskForLine(line, data.culture));
 
-    setResults(tasks.map(t => ({ 
+    const initialResults = tasks.map(t => ({ 
         prompt: t.prompt, 
         culture: t.culture, 
         provider: data.provider, 
         status: 'pending' 
-    })));
+    }));
+    
+    setResults(initialResults);
     setProgress({ current: 0, total: tasks.length });
     
-    for (const [index, task] of tasks.entries()) {
-        if (signal.aborted) {
-            toast({ title: "Proceso Detenido", description: "La generación en lote fue detenida por el usuario." });
-            break; 
+    // We use a small timeout to allow React to render the initial pending state
+    // before we start processing.
+    setTimeout(async () => {
+      for (const [index, task] of tasks.entries()) {
+          if (signal.aborted) {
+              toast({ title: "Proceso Detenido", description: "La generación en lote fue detenida por el usuario." });
+              break; 
+          }
+          await processSinglePrompt(index);
+          setProgress(prev => ({ ...prev, current: index + 1 }));
+      }
+      
+      // Update state after loop finishes
+      setResults(currentResults => {
+        if (!currentResults.some(r => r.status !== 'success')) {
+          setIsProcessingBatch(false);
         }
-        await processSinglePrompt(index);
-        setProgress(prev => ({ ...prev, current: index + 1 }));
-    }
+        return currentResults;
+      });
 
-    const finalResults = results;
-    if (!finalResults.some(r => r.status !== 'success')) {
-        setIsProcessingBatch(false);
-    }
-    
-    abortControllerRef.current = null; 
+      abortControllerRef.current = null; 
 
-    if (!signal.aborted) {
-      toast({ title: "Proceso en Lote Terminado", description: "Revisa los resultados en la lista." });
-    }
+      if (!signal.aborted) {
+        toast({ title: "Proceso en Lote Terminado", description: "Revisa los resultados en la lista." });
+      }
+    }, 100);
   }
 
   const handleStopProcessing = () => {
@@ -437,19 +453,24 @@ export default function BatchCreatePage() {
         const result = results[index];
         return result.status === 'pending' || result.status === 'error';
     });
+    
+    setProgress({ current: 0, total: itemsToRetry.length });
 
-    for (const index of itemsToRetry) {
+    for (const [i, index] of itemsToRetry.entries()) {
         if (signal.aborted) {
             toast({ title: "Proceso Detenido", description: "La generación en lote fue detenida." });
             break;
         }
         await processSinglePrompt(index);
+        setProgress(prev => ({ ...prev, current: i + 1 }));
     }
     
-    const finalResults = results;
-    if (!finalResults.some(r => r.status !== 'success')) {
-        setIsProcessingBatch(false);
-    }
+    setResults(currentResults => {
+        if (!currentResults.some(r => r.status !== 'success')) {
+            setIsProcessingBatch(false);
+        }
+        return currentResults;
+    });
 
     abortControllerRef.current = null;
     if (!signal.aborted) {
@@ -737,3 +758,5 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
 
   return <Image src={imageUrl} alt={`Generated: ${name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />;
 };
+
+    
