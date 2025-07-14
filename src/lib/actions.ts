@@ -12,14 +12,16 @@ import type { GeneratedParams } from "./types";
 
 export async function generateMythImageAction(input: GeneratedParams): Promise<GenerateMythImageOutput> {
   try {
+    // This action now only calls the Google AI flow. Stable Diffusion is handled client-side.
     const result = await generateMythImageFlow(input);
     return result;
   } catch (error: any) {
-    console.error("Error in generateMythImageAction:", error);
+    console.error("Error in generateMythImageAction (Google AI):", error);
+    // This error is specific to Google AI, so the quota message is appropriate here.
     if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-        throw new Error("Has excedido tu cuota de generación de imágenes. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+        throw new Error("Has excedido tu cuota de generación de imágenes con Google AI. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
     }
-    throw new Error(error.message || "Failed to generate image. Please try again.");
+    throw new Error(error.message || "Failed to generate image with Google AI. Please try again.");
   }
 }
 
@@ -38,14 +40,16 @@ export async function analyzeUploadedImageAction(input: AnalyzeUploadedImageInpu
 
 export async function reimagineUploadedImageAction(input: ReimagineUploadedImageInput): Promise<ReimagineUploadedImageOutput> {
   try {
+     // This action now only calls the Google AI flow. Stable Diffusion is handled client-side.
     const result = await reimagineUploadedImageFlow(input);
     return result;
   } catch (error: any) {
-    console.error("Error in reimagineUploadedImageAction:", error);
+    console.error("Error in reimagineUploadedImageAction (Google AI):", error);
+     // This error is specific to Google AI, so the quota message is appropriate here.
     if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-        throw new Error("Has excedido tu cuota de generación de imágenes. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+        throw new Error("Has excedido tu cuota de generación de imágenes con Google AI. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
     }
-    throw new Error(error.message || "Failed to reimagine image. Please try again.");
+    throw new Error(error.message || "Failed to reimagine image with Google AI. Please try again.");
   }
 }
 
@@ -101,4 +105,3 @@ export async function translateTextAction(input: TranslateTextInput): Promise<Tr
     throw new Error(error.message || "No se pudo traducir el texto. Por favor, inténtalo de nuevo.");
   }
 }
-
