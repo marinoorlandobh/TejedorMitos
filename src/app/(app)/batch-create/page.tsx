@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDescriptionComponent } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction, reimagineUploadedImageAction } from '@/lib/actions';
+import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -222,8 +222,19 @@ export default function BatchCreatePage() {
         }
     }, []);
 
-    const runSinglePromptProcessing = useCallback(async (promptToProcess: string, cultureForPrompt: string, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
-        const { creationName, entity } = await extractDetailsFromPromptAction({ promptText: promptToProcess });
+    const runSinglePromptProcessing = useCallback(async (index: number, promptToProcess: string, cultureForPrompt: string, settings: Omit<BatchCreateFormData, 'prompts' | 'culture'>) => {
+        let creationName = '';
+        let entity = '';
+
+        if (settings.provider === 'google-ai') {
+            const details = await extractDetailsFromPromptAction({ promptText: promptToProcess });
+            creationName = details.creationName;
+            entity = details.entity;
+        } else {
+            // For local providers, use a generic naming scheme
+            creationName = `Creación en Lote #${index + 1}`;
+            entity = promptToProcess.split(' ').slice(0, 3).join(' '); // Use first few words as entity
+        }
         
         const aiInputParams: GeneratedParams = {
             culture: cultureForPrompt,
@@ -273,7 +284,7 @@ export default function BatchCreatePage() {
         try {
             const TIMEOUT_MS = 60000; 
             const result = await withTimeout(
-                runSinglePromptProcessing(prompt, culture, settings),
+                runSinglePromptProcessing(index, prompt, culture, settings),
                 TIMEOUT_MS
             );
             
