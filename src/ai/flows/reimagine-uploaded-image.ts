@@ -1,4 +1,4 @@
-// 'use server';
+'use server';
 
 /**
  * @fileOverview AI flow for reimaging an uploaded image with a different style or parameters.
@@ -7,9 +7,6 @@
  * - ReimagineUploadedImageInput - The input type for the reimagineUploadedImage function.
  * - ReimagineUploadedImageOutput - The return type for the reimagineUploadedImage function.
  */
-
-'use server';
-
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
@@ -17,7 +14,7 @@ const ReimagineUploadedImageInputSchema = z.object({
   originalImage: z
     .string()
     .describe(
-      'The original image to reimagine, as a data URI that must include a MIME type and use Base64 encoding. Expected format: \'data:<mimetype>;base64,<encoded_data>\'.' // Corrected typo here
+      "The original image to reimagine, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'.",
     ),
   contextCulture: z.string().describe('The mythological culture context for the image.'),
   contextEntity: z.string().describe('The mythological entity/theme for the image.'),
@@ -33,7 +30,7 @@ const ReimagineUploadedImageOutputSchema = z.object({
   reimaginedImage: z
     .string()
     .describe(
-      'The reimagined image, as a data URI that must include a MIME type and use Base64 encoding. Expected format: \'data:<mimetype>;base64,<encoded_data>\'.'
+      "The reimagined image, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'.",
     ),
   derivedPrompt: z.string().describe('The prompt derived by the AI to create the reimagined image.'),
 });
@@ -63,7 +60,7 @@ const reimagineImagePrompt = ai.definePrompt({
   Based on the above information, create a detailed prompt to generate a reimagined version of the image.
   The prompt should be descriptive and consider the new visual style and desired image quality.
   Return ONLY the derived prompt. Do not include any other text or explanation.
-  Derived Prompt:`, // Ensure clear instructions for the LLM
+  Derived Prompt:`,
 });
 
 const reimagineUploadedImageFlow = ai.defineFlow(
@@ -82,9 +79,9 @@ const reimagineUploadedImageFlow = ai.defineFlow(
         {media: {url: input.originalImage}},
         {text: derivedPrompt},
       ],
+      aspectRatio: aspectRatioForApi,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
-        aspectRatio: aspectRatioForApi,
         safetySettings: [
           {
             category: 'HARM_CATEGORY_DANGEROUS_CONTENT',

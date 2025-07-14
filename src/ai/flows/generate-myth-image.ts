@@ -49,9 +49,9 @@ const generateMythImageFlow = ai.defineFlow(
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: fullPrompt,
+      aspectRatio: aspectRatioForApi,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
-        aspectRatio: aspectRatioForApi,
         safetySettings: [
           {
             category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
