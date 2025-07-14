@@ -66,18 +66,44 @@ export async function extractMythologiesAction(input: ExtractMythologiesInput): 
   }
 }
 
+// Helper for exponential backoff
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function extractDetailsFromPromptAction(input: ExtractDetailsInput): Promise<ExtractDetailsOutput> {
-  try {
-    const result = await extractDetailsFromPromptFlow(input);
-    return result;
-  } catch (error: any) {
-    console.error("Error in extractDetailsFromPromptAction:", error);
-    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-        throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+  let retries = 0;
+  const maxRetries = 3;
+  let lastError: any;
+
+  while (retries < maxRetries) {
+    try {
+      const result = await extractDetailsFromPromptFlow(input);
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      const isQuotaError = error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'));
+      
+      if (isQuotaError) {
+        retries++;
+        if (retries < maxRetries) {
+          const waitTime = Math.pow(2, retries) * 1000; // 2s, 4s
+          console.log(`Quota error detected. Retrying in ${waitTime / 1000}s... (Attempt ${retries}/${maxRetries})`);
+          await delay(waitTime);
+          continue; // Continue to next iteration of the loop
+        } else {
+          // Max retries reached, throw a specific error
+          throw new Error("Se excedió la cuota de API repetidamente. Por favor, intenta de nuevo más tarde.");
+        }
+      } else {
+        // Not a quota error, rethrow immediately
+        throw new Error(error.message || "No se pudieron extraer los detalles del prompt. Por favor, inténtalo de nuevo.");
+      }
     }
-    throw new Error(error.message || "No se pudieron extraer los detalles del prompt. Por favor, inténtalo de nuevo.");
   }
+
+  // This part should not be reachable if logic is correct, but as a fallback:
+  throw new Error(lastError?.message || "No se pudieron extraer los detalles del prompt tras varios intentos.");
 }
+
 
 export async function fixImagePromptAction(input: FixImagePromptInput): Promise<FixImagePromptOutput> {
   try {
