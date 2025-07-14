@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useHistory } from '@/contexts/HistoryContext';
-import { List, Search, Download, Loader2, Info } from 'lucide-react';
+import { List, Search, Download, Loader2, Info, Edit3, Save, X, Languages } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,7 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import type { Creation, TextOutputModel, GeneratedParams, AnalyzedParams, ReimaginedParams, GeneratedOutputData, AnalyzedOutputData, ReimaginedOutputData } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import Papa from 'papaparse';
-
+import { Textarea } from '@/components/ui/textarea';
+import { translateTextAction } from '@/lib/actions';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface EnrichedCreation extends Creation {
     textOutput?: TextOutputModel;
@@ -22,8 +24,11 @@ interface EnrichedCreation extends Creation {
 const getCulture = (c: EnrichedCreation) => (c.params as any).culture || (c.params as any).mythologicalContext || (c.params as any).contextCulture || 'N/A';
 const getEntity = (c: EnrichedCreation) => (c.params as any).entity || (c.params as any).entityTheme || (c.params as any).contextEntity || 'N/A';
 
-const getInputDetails = (c: EnrichedCreation) => {
-    return (c.params as any).details || (c.params as any).additionalDetails || (c.params as any).contextDetails || '';
+const getInputDetails = (c: Creation) => {
+    if (c.type === 'generated') return (c.params as GeneratedParams).details;
+    if (c.type === 'reimagined') return (c.params as ReimaginedParams).contextDetails;
+    if (c.type === 'analyzed') return (c.params as AnalyzedParams).additionalDetails || '';
+    return '';
 };
 
 const getOutputDetails = (c: EnrichedCreation) => {
@@ -47,11 +52,17 @@ const getFullDetails = (c: EnrichedCreation) => {
 
 
 export default function DataViewPage() {
-    const { creations, getTextOutput, loading: historyLoading } = useHistory();
+    const { creations, getTextOutput, updateCreationName, updateCreationParams, loading: historyLoading } = useHistory();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [enrichedCreations, setEnrichedCreations] = useState<EnrichedCreation[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    const [editingCell, setEditingCell] = useState<{ id: string; field: 'name' | 'details' } | null>(null);
+    const [editingValue, setEditingValue] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [isTranslating, setIsTranslating] = useState(false);
+
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -116,6 +127,61 @@ export default function DataViewPage() {
         toast({ title: "Exportación Completa", description: "Los datos de la tabla se han descargado como un archivo CSV." });
     };
 
+    const handleEditClick = (creation: Creation, field: 'name' | 'details') => {
+        setEditingCell({ id: creation.id, field });
+        if (field === 'name') {
+            setEditingValue(creation.name);
+        } else {
+            setEditingValue(getInputDetails(creation));
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingCell(null);
+        setEditingValue('');
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingCell) return;
+        setIsSaving(true);
+        try {
+            if (editingCell.field === 'name') {
+                await updateCreationName(editingCell.id, editingValue);
+            } else {
+                const creation = creations.find(c => c.id === editingCell.id);
+                if (creation) {
+                    const newParams = { ...creation.params };
+                    if (creation.type === 'generated') (newParams as GeneratedParams).details = editingValue;
+                    if (creation.type === 'reimagined') (newParams as ReimaginedParams).contextDetails = editingValue;
+                    if (creation.type === 'analyzed') (newParams as AnalyzedParams).additionalDetails = editingValue;
+                    await updateCreationParams(editingCell.id, newParams);
+                }
+            }
+            toast({ title: "Guardado", description: "La creación ha sido actualizada." });
+            handleCancelEdit();
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "Error al guardar", description: e.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleTranslate = async () => {
+        if (!editingValue) return;
+        setIsTranslating(true);
+        toast({ title: "Traduciendo...", description: "La IA está traduciendo el texto." });
+        try {
+            const { translatedText } = await translateTextAction({ text: editingValue });
+            setEditingValue(translatedText);
+            toast({ title: "¡Texto Traducido!" });
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "Error de Traducción", description: e.message });
+        } finally {
+            setIsTranslating(false);
+        }
+    };
+
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-full">
@@ -135,7 +201,7 @@ export default function DataViewPage() {
                         Vista de Datos
                     </h1>
                     <p className="text-muted-foreground mt-2 text-lg">
-                        Explora y exporta toda la información textual de tus creaciones.
+                        Explora, edita, traduce y exporta toda la información textual de tus creaciones.
                     </p>
                 </header>
                 
@@ -193,7 +259,23 @@ export default function DataViewPage() {
                                     <TableBody>
                                         {filteredCreations.map(creation => (
                                             <TableRow key={creation.id}>
-                                                <TableCell className="font-medium align-top">{creation.name}</TableCell>
+                                                <TableCell className="font-medium align-top group relative">
+                                                    {editingCell?.id === creation.id && editingCell.field === 'name' ? (
+                                                        <div className="space-y-2">
+                                                            <Input value={editingValue} onChange={(e) => setEditingValue(e.target.value)} className="h-8" />
+                                                            <div className="flex items-center gap-1">
+                                                                <Button size="icon" className="h-6 w-6" onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? <Loader2 className="animate-spin h-3 w-3" /> : <Save className="h-3 w-3" />}</Button>
+                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCancelEdit}><X className="h-3 w-3" /></Button>
+                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslate} disabled={isTranslating}>{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            {creation.name}
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 absolute top-2 right-2 opacity-0 group-hover:opacity-100" onClick={() => handleEditClick(creation, 'name')}><Edit3 className="h-4 w-4" /></Button>
+                                                        </>
+                                                    )}
+                                                </TableCell>
                                                 <TableCell className="align-top">
                                                     <Badge variant={
                                                         creation.type === 'generated' ? 'default' :
@@ -204,7 +286,29 @@ export default function DataViewPage() {
                                                 </TableCell>
                                                 <TableCell className="align-top">{getCulture(creation)}</TableCell>
                                                 <TableCell className="align-top">{getEntity(creation)}</TableCell>
-                                                <TableCell className="text-xs text-muted-foreground align-top whitespace-pre-wrap">{getFullDetails(creation)}</TableCell>
+                                                <TableCell className="text-xs text-muted-foreground align-top whitespace-pre-wrap group relative">
+                                                   {editingCell?.id === creation.id && editingCell.field === 'details' ? (
+                                                        <div className="space-y-2">
+                                                            <Textarea value={editingValue} onChange={(e) => setEditingValue(e.target.value)} rows={4} />
+                                                            <div className="flex items-center gap-1">
+                                                                <Button size="icon" className="h-6 w-6" onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? <Loader2 className="animate-spin h-3 w-3" /> : <Save className="h-3 w-3" />}</Button>
+                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCancelEdit}><X className="h-3 w-3" /></Button>
+                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslate} disabled={isTranslating}>{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
+                                                            </div>
+                                                            <p className="text-xs text-foreground mt-2 border-t pt-2">{getOutputDetails(creation)}</p>
+                                                        </div>
+                                                   ) : (
+                                                       <>
+                                                         {getInputDetails(creation) && (
+                                                            <p className="text-foreground">{getInputDetails(creation)}</p>
+                                                         )}
+                                                         <p className={getInputDetails(creation) ? 'mt-2 border-t pt-2' : ''}>{getOutputDetails(creation)}</p>
+                                                         {getInputDetails(creation) && (
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 absolute top-2 right-2 opacity-0 group-hover:opacity-100" onClick={() => handleEditClick(creation, 'details')}><Edit3 className="h-4 w-4" /></Button>
+                                                         )}
+                                                       </>
+                                                   )}
+                                                </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -221,4 +325,5 @@ export default function DataViewPage() {
             </div>
         </ScrollArea>
     )
-}
+
+    
