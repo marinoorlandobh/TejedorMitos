@@ -105,7 +105,7 @@ async function reimagineWithGoogleAI(derivedPrompt: string, input: ReimagineUplo
 
 
 async function reimagineWithStableDiffusion(derivedPrompt: string, input: ReimagineUploadedImageInput) {
-    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL || 'http://host.docker.internal:7860';
+    const apiUrl = process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL || 'http://127.0.0.1:7860';
 
     const dimensions = mapAspectRatioToDimensions(input.aspectRatio);
     const steps = mapQualityToSteps(input.imageQuality);
