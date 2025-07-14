@@ -10,6 +10,9 @@ import { fixImagePrompt as fixImagePromptFlow, type FixImagePromptInput, type Fi
 import { translateText as translateTextFlow, type TranslateTextInput, type TranslateTextOutput } from "@/ai/flows/translate-text-flow";
 import type { GeneratedParams } from "./types";
 
+// Helper for exponential backoff
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function generateMythImageAction(input: GeneratedParams): Promise<GenerateMythImageOutput> {
   try {
     // This action now only calls the Google AI flow. Stable Diffusion is handled client-side.
@@ -54,20 +57,34 @@ export async function reimagineUploadedImageAction(input: ReimagineUploadedImage
 }
 
 export async function extractMythologiesAction(input: ExtractMythologiesInput): Promise<ExtractMythologiesOutput> {
-  try {
-    const result = await extractMythologiesFlow(input);
-    return result;
-  } catch (error: any) {
-    console.error("Error in extractMythologiesAction:", error);
-     if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-        throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+  let retries = 0;
+  const maxRetries = 3;
+
+  while (retries < maxRetries) {
+    try {
+      const result = await extractMythologiesFlow(input);
+      return result;
+    } catch (error: any) {
+      const isQuotaError = error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'));
+      
+      if (isQuotaError && retries < maxRetries - 1) {
+        retries++;
+        const waitTime = Math.pow(2, retries) * 1000; // 2s, 4s
+        console.log(`Quota error in extractMythologiesAction. Retrying in ${waitTime / 1000}s... (Attempt ${retries}/${maxRetries})`);
+        await delay(waitTime);
+      } else {
+        console.error("Failed to extract mythologies from text:", error);
+        if (isQuotaError) {
+            throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+        }
+        throw new Error(error.message || "No se pudieron extraer las mitologías del texto.");
+      }
     }
-    throw new Error(error.message || "Failed to extract mythologies from text. Please try again.");
   }
+  // This part should not be reachable if logic is correct, but as a fallback:
+  throw new Error("No se pudieron extraer las mitologías del texto tras varios intentos.");
 }
 
-// Helper for exponential backoff
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function extractDetailsFromPromptAction(input: ExtractDetailsInput): Promise<ExtractDetailsOutput> {
   let retries = 0;
@@ -88,6 +105,9 @@ export async function extractDetailsFromPromptAction(input: ExtractDetailsInput)
       } else {
         // Not a retriable quota error or max retries reached, rethrow the original error.
         console.error("Failed to extract details from prompt:", error);
+        if (isQuotaError) {
+          throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+        }
         throw new Error(error.message || "No se pudieron extraer los detalles del prompt.");
       }
     }
