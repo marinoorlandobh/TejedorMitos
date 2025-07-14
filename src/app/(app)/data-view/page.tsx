@@ -21,16 +21,30 @@ interface EnrichedCreation extends Creation {
 
 const getCulture = (c: EnrichedCreation) => (c.params as any).culture || (c.params as any).mythologicalContext || (c.params as any).contextCulture || 'N/A';
 const getEntity = (c: EnrichedCreation) => (c.params as any).entity || (c.params as any).entityTheme || (c.params as any).contextEntity || 'N/A';
-const getDetails = (c: EnrichedCreation) => {
+
+const getInputDetails = (c: EnrichedCreation) => {
+    return (c.params as any).details || (c.params as any).additionalDetails || (c.params as any).contextDetails || '';
+};
+
+const getOutputDetails = (c: EnrichedCreation) => {
     if (c.textOutput) {
         const data = c.textOutput.data;
-        if ((data as GeneratedOutputData).prompt) return (data as GeneratedOutputData).prompt;
-        if ((data as ReimaginedOutputData).derivedPrompt) return (data as ReimaginedOutputData).derivedPrompt;
-        if ((data as AnalyzedOutputData).analysis) return (data as AnalyzedOutputData).analysis;
+        if ((data as GeneratedOutputData).prompt) return `Prompt: ${(data as GeneratedOutputData).prompt}`;
+        if ((data as ReimaginedOutputData).derivedPrompt) return `Prompt Derivado: ${(data as ReimaginedOutputData).derivedPrompt}`;
+        if ((data as AnalyzedOutputData).analysis) return `Análisis: ${(data as AnalyzedOutputData).analysis}`;
     }
-    // Fallback to params if no textOutput
-    return (c.params as any).details || (c.params as any).additionalDetails || (c.params as any).contextDetails || 'N/A';
+    return '';
 };
+
+const getFullDetails = (c: EnrichedCreation) => {
+    const input = getInputDetails(c);
+    const output = getOutputDetails(c);
+    if (input && output) {
+        return `Detalles: ${input}\n\n${output}`;
+    }
+    return input || output || 'N/A';
+};
+
 
 export default function DataViewPage() {
     const { creations, getTextOutput, loading: historyLoading } = useHistory();
@@ -68,7 +82,7 @@ export default function DataViewPage() {
             c.type.toLowerCase().includes(lowercasedFilter) ||
             getCulture(c).toLowerCase().includes(lowercasedFilter) ||
             getEntity(c).toLowerCase().includes(lowercasedFilter) ||
-            getDetails(c).toLowerCase().includes(lowercasedFilter)
+            getFullDetails(c).toLowerCase().includes(lowercasedFilter)
         );
     }, [searchTerm, enrichedCreations]);
     
@@ -83,7 +97,7 @@ export default function DataViewPage() {
             "Tipo": c.type,
             "Cultura/Contexto": getCulture(c),
             "Entidad/Tema": getEntity(c),
-            "Detalles/Prompt": getDetails(c),
+            "Detalles/Salida IA": getFullDetails(c),
             "Fecha Creación": new Date(c.createdAt).toISOString(),
         }));
 
@@ -173,7 +187,7 @@ export default function DataViewPage() {
                                             <TableHead className="w-[10%]">Tipo</TableHead>
                                             <TableHead className="w-[15%]">Cultura/Contexto</TableHead>
                                             <TableHead className="w-[15%]">Entidad/Tema</TableHead>
-                                            <TableHead>Detalles / Prompt</TableHead>
+                                            <TableHead>Detalles / Salida IA</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -190,7 +204,7 @@ export default function DataViewPage() {
                                                 </TableCell>
                                                 <TableCell className="align-top">{getCulture(creation)}</TableCell>
                                                 <TableCell className="align-top">{getEntity(creation)}</TableCell>
-                                                <TableCell className="text-xs text-muted-foreground align-top">{getDetails(creation)}</TableCell>
+                                                <TableCell className="text-xs text-muted-foreground align-top whitespace-pre-wrap">{getFullDetails(creation)}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
