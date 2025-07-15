@@ -66,6 +66,9 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
       checkpoint: '',
     },
   });
+  
+  const selectedCulture = form.watch('culture');
+  const selectedProvider = form.watch('provider');
 
   useEffect(() => {
     // Reset form and results when dialog is re-opened with a new prompt
@@ -85,9 +88,29 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
     setGeneratedPrompt(null);
   }, [prompt, form, open]);
 
-  const selectedCulture = form.watch('culture');
-  const selectedProvider = form.watch('provider');
-
+  useEffect(() => {
+    const fetchSdCheckpoint = async () => {
+      if (open && selectedProvider === 'stable-diffusion') {
+          try {
+              const response = await fetch('http://127.0.0.1:7860/sdapi/v1/options', {
+                  method: 'GET',
+                  headers: { 'Content-Type': 'application/json' },
+                  mode: 'cors',
+              });
+              if (response.ok) {
+                  const options = await response.json();
+                  if (options.sd_model_checkpoint) {
+                      form.setValue('checkpoint', options.sd_model_checkpoint);
+                      toast({ title: "Checkpoint Detectado", description: `Se ha cargado automáticamente el checkpoint: ${options.sd_model_checkpoint}`, duration: 3000 });
+                  }
+              }
+          } catch (error) {
+              console.warn("No se pudo conectar a la API de Stable Diffusion para obtener el checkpoint. Se requiere entrada manual.");
+          }
+      }
+    };
+    fetchSdCheckpoint();
+  }, [selectedProvider, form, toast, open]);
 
   async function generateWithStableDiffusion(prompt: string, aspectRatio: string, imageQuality: string, checkpoint?: string) {
     const apiUrl = 'http://127.0.0.1:7860';
@@ -338,9 +361,9 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
                       name="checkpoint"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Checkpoint Base (Opcional)</FormLabel>
+                          <FormLabel>Checkpoint Base (automático o manual)</FormLabel>
                           <FormControl>
-                            <Input placeholder="Ej: Juggernaut, DreamShaper, etc." {...field} />
+                            <Input placeholder="Detectando checkpoint actual..." {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

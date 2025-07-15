@@ -99,6 +99,30 @@ export default function BatchCreatePage() {
   const selectedProvider = form.watch('provider');
 
   useEffect(() => {
+      const fetchSdCheckpoint = async () => {
+        if (selectedProvider === 'stable-diffusion') {
+            try {
+                const response = await fetch('http://127.0.0.1:7860/sdapi/v1/options', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    mode: 'cors',
+                });
+                if (response.ok) {
+                    const options = await response.json();
+                    if (options.sd_model_checkpoint) {
+                        form.setValue('checkpoint', options.sd_model_checkpoint);
+                        toast({ title: "Checkpoint Detectado", description: `Se ha cargado automáticamente el checkpoint: ${options.sd_model_checkpoint}`, duration: 3000 });
+                    }
+                }
+            } catch (error) {
+                console.warn("No se pudo conectar a la API de Stable Diffusion para obtener el checkpoint. Se requiere entrada manual.");
+            }
+        }
+    };
+    fetchSdCheckpoint();
+  }, [selectedProvider, form, toast]);
+
+  useEffect(() => {
     const cachedData = localStorage.getItem('mythWeaverBatchCreateCache');
     if (cachedData) {
         try {
@@ -668,9 +692,9 @@ export default function BatchCreatePage() {
                             name="checkpoint"
                             render={({ field }) => (
                                 <FormItem>
-                                <FormLabel>Checkpoint Base (Opcional)</FormLabel>
+                                <FormLabel>Checkpoint Base (automático o manual)</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Ej: Juggernaut, DreamShaper, etc." {...field} disabled={isBatchActive} />
+                                    <Input placeholder="Detectando checkpoint actual..." {...field} disabled={isBatchActive} />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>

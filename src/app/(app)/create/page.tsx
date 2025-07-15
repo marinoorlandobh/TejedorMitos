@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -63,6 +63,31 @@ export default function CreateMythPage() {
 
   const selectedCulture = form.watch('culture');
   const selectedProvider = form.watch('provider');
+
+  useEffect(() => {
+    const fetchSdCheckpoint = async () => {
+      if (selectedProvider === 'stable-diffusion') {
+          try {
+              const response = await fetch('http://127.0.0.1:7860/sdapi/v1/options', {
+                  method: 'GET',
+                  headers: { 'Content-Type': 'application/json' },
+                  mode: 'cors',
+              });
+              if (response.ok) {
+                  const options = await response.json();
+                  if (options.sd_model_checkpoint) {
+                      form.setValue('checkpoint', options.sd_model_checkpoint);
+                      toast({ title: "Checkpoint Detectado", description: `Se ha cargado automáticamente el checkpoint: ${options.sd_model_checkpoint}`, duration: 3000 });
+                  }
+              }
+          } catch (error) {
+              console.warn("No se pudo conectar a la API de Stable Diffusion para obtener el checkpoint. Se requiere entrada manual.");
+          }
+      }
+    };
+    fetchSdCheckpoint();
+  }, [selectedProvider, form, toast]);
+
 
   async function generateWithStableDiffusion(prompt: string, aspectRatio: string, imageQuality: string, checkpoint?: string) {
     const apiUrl = 'http://127.0.0.1:7860';
@@ -366,9 +391,9 @@ export default function CreateMythPage() {
                       name="checkpoint"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Checkpoint Base (Opcional)</FormLabel>
+                          <FormLabel>Checkpoint Base (automático o manual)</FormLabel>
                           <FormControl>
-                            <Input placeholder="Ej: Juggernaut, DreamShaper, etc." {...field} />
+                            <Input placeholder="Detectando checkpoint actual..." {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
