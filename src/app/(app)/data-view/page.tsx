@@ -19,13 +19,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-
 interface EnrichedCreation extends Creation {
     textOutput?: TextOutputModel;
 }
 
-const getCulture = (c: EnrichedCreation) => (c.params as any).culture || (c.params as any).mythologicalContext || (c.params as any).contextCulture || 'N/A';
-const getEntity = (c: EnrichedCreation) => (c.params as any).entity || (c.params as any).entityTheme || (c.params as any).contextEntity || 'N/A';
+const getCulture = (c: Creation) => (c.params as any).culture || (c.params as any).mythologicalContext || (c.params as any).contextCulture || 'N/A';
+const getEntity = (c: Creation) => (c.params as any).entity || (c.params as any).entityTheme || (c.params as any).contextEntity || 'N/A';
 
 const getInputDetails = (c: Creation) => {
     if (c.type === 'generated') return (c.params as GeneratedParams).details;
@@ -34,33 +33,63 @@ const getInputDetails = (c: Creation) => {
     return '';
 };
 
-const getOutputDetails = (c: EnrichedCreation) => {
-    if (c.textOutput) {
-        const data = c.textOutput.data;
-        if ((data as GeneratedOutputData).prompt) return `Prompt: ${(data as GeneratedOutputData).prompt}`;
-        if ((data as ReimaginedOutputData).derivedPrompt) return `Prompt Derivado: ${(data as ReimaginedOutputData).derivedPrompt}`;
-        if ((data as AnalyzedOutputData).analysis) return `Análisis: ${(data as AnalyzedOutputData).analysis}`;
-    }
-    return '';
-};
+// This component fetches and displays the output details for a single creation.
+const OutputDetailsCell: React.FC<{ creation: Creation }> = ({ creation }) => {
+    const { getTextOutput } = useHistory();
+    const [outputDetails, setOutputDetails] = useState<string>('Cargando...');
+    const [loading, setLoading] = useState(true);
 
-const getFullDetails = (c: EnrichedCreation) => {
-    const input = getInputDetails(c);
-    const output = getOutputDetails(c);
-    if (input && output) {
-        return `Detalles: ${input}\n\n${output}`;
+    useEffect(() => {
+        let isActive = true;
+        const fetchOutput = async () => {
+            if (!creation.outputId) {
+                setOutputDetails('');
+                setLoading(false);
+                return;
+            }
+            try {
+                const textOutput = await getTextOutput(creation.outputId);
+                if (isActive && textOutput) {
+                    const data = textOutput.data;
+                    if ((data as GeneratedOutputData).prompt) setOutputDetails(`Prompt: ${(data as GeneratedOutputData).prompt}`);
+                    else if ((data as ReimaginedOutputData).derivedPrompt) setOutputDetails(`Prompt Derivado: ${(data as ReimaginedOutputData).derivedPrompt}`);
+                    else if ((data as AnalyzedOutputData).analysis) setOutputDetails(`Análisis: ${(data as AnalyzedOutputData).analysis}`);
+                    else setOutputDetails('');
+                } else if (isActive) {
+                     setOutputDetails('');
+                }
+            } catch (e) {
+                if (isActive) setOutputDetails('Error al cargar');
+                console.error("Error fetching output details:", e);
+            } finally {
+                if (isActive) setLoading(false);
+            }
+        };
+
+        fetchOutput();
+        return () => { isActive = false; };
+    }, [creation.outputId, getTextOutput]);
+    
+    const inputDetails = getInputDetails(creation);
+    
+    if (loading) {
+        return <Loader2 className="h-4 w-4 animate-spin" />;
     }
-    return input || output || 'N/A';
+
+    return (
+        <>
+            {inputDetails && <p className="text-foreground">{inputDetails}</p>}
+            <p className={inputDetails ? 'mt-2 border-t pt-2' : ''}>{outputDetails}</p>
+        </>
+    );
 };
 
 
 export default function DataViewPage() {
-    const { creations, getTextOutput, updateCreationName, updateCreationParams, updateCreationTranslatedStatus, updateCreationNameAndParams, loading: historyLoading } = useHistory();
+    const { creations, updateCreationName, updateCreationParams, updateCreationTranslatedStatus, updateCreationNameAndParams, loading: historyLoading } = useHistory();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
-    const [enrichedCreations, setEnrichedCreations] = useState<EnrichedCreation[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
+    
     const [editingCell, setEditingCell] = useState<{ id: string; field: 'name' | 'details' } | null>(null);
     const [editingValue, setEditingValue] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -68,30 +97,8 @@ export default function DataViewPage() {
     const [translatingId, setTranslatingId] = useState<string | null>(null);
     const [translationFilter, setTranslationFilter] = useState<'all' | 'translated' | 'untranslated'>('all');
 
-
-    useEffect(() => {
-        const fetchAllData = async () => {
-            if (historyLoading) return;
-            setIsLoading(true);
-            const enriched = await Promise.all(
-                creations.map(async (c) => {
-                    let textOutput: TextOutputModel | undefined;
-                    if (c.outputId) {
-                        textOutput = await getTextOutput(c.outputId);
-                    }
-                    return { ...c, textOutput };
-                })
-            );
-            setEnrichedCreations(enriched);
-            setIsLoading(false);
-        };
-
-        fetchAllData();
-    }, [creations, getTextOutput, historyLoading]);
-
-
     const filteredCreations = useMemo(() => {
-        const creationsAfterTranslationFilter = enrichedCreations.filter(c => {
+        const creationsAfterTranslationFilter = creations.filter(c => {
             if (translationFilter === 'translated') return c.isTranslated;
             if (translationFilter === 'untranslated') return !c.isTranslated;
             return true; // 'all'
@@ -104,12 +111,13 @@ export default function DataViewPage() {
             c.name.toLowerCase().includes(lowercasedFilter) ||
             c.type.toLowerCase().includes(lowercasedFilter) ||
             getCulture(c).toLowerCase().includes(lowercasedFilter) ||
-            getEntity(c).toLowerCase().includes(lowercasedFilter) ||
-            getFullDetails(c).toLowerCase().includes(lowercasedFilter)
+            getEntity(c).toLowerCase().includes(lowercasedFilter)
+            // Note: Full-text search on details is removed for performance.
+            // A more advanced search would require a different approach.
         );
-    }, [searchTerm, enrichedCreations, translationFilter]);
+    }, [searchTerm, creations, translationFilter]);
     
-    const handleExportToCsv = () => {
+    const handleExportToCsv = async () => {
         if (filteredCreations.length === 0) {
             toast({ variant: "destructive", title: "Sin datos", description: "No hay datos para exportar." });
             return;
@@ -121,7 +129,7 @@ export default function DataViewPage() {
             "Traducido": c.isTranslated ? "Sí" : "No",
             "Cultura/Contexto": getCulture(c),
             "Entidad/Tema": getEntity(c),
-            "Detalles/Salida IA": getFullDetails(c),
+            "Detalles de Entrada": getInputDetails(c),
             "Fecha Creación": new Date(c.createdAt).toISOString(),
         }));
 
@@ -231,7 +239,7 @@ export default function DataViewPage() {
     };
 
 
-    if (isLoading) {
+    if (historyLoading && creations.length === 0) {
         return (
             <div className="flex items-center justify-center h-full">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -283,7 +291,7 @@ export default function DataViewPage() {
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                                         <Input
                                             type="search"
-                                            placeholder="Buscar en todos los campos..."
+                                            placeholder="Buscar por nombre, tipo, cultura o entidad..."
                                             className="pl-10 w-full"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -358,14 +366,13 @@ export default function DataViewPage() {
                                                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCancelEdit}><X className="h-3 w-3" /></Button>
                                                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslateInPlace} disabled={isTranslating}>{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
                                                             </div>
-                                                            <p className="text-xs text-foreground mt-2 border-t pt-2">{getOutputDetails(creation)}</p>
+                                                            <div className="mt-2 border-t pt-2">
+                                                                <OutputDetailsCell creation={creation} />
+                                                            </div>
                                                         </div>
                                                    ) : (
                                                        <>
-                                                         {getInputDetails(creation) && (
-                                                            <p className="text-foreground">{getInputDetails(creation)}</p>
-                                                         )}
-                                                         <p className={getInputDetails(creation) ? 'mt-2 border-t pt-2' : ''}>{getOutputDetails(creation)}</p>
+                                                          <OutputDetailsCell creation={creation} />
                                                          {getInputDetails(creation) && (
                                                             <Button variant="ghost" size="icon" className="h-6 w-6 absolute top-2 right-2 opacity-0 group-hover:opacity-100" onClick={() => handleEditClick(creation, 'details')}><Edit3 className="h-4 w-4" /></Button>
                                                          )}
@@ -427,3 +434,5 @@ export default function DataViewPage() {
         </ScrollArea>
     );
 }
+
+    
