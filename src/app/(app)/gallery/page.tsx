@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
 import { CreateFromPromptDialog } from '@/components/CreateFromPromptDialog';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { Label } from '@/components/ui/label';
-import { generateMythImageAction, reimagineUploadedImageAction } from '@/lib/actions';
+import { generateMythImageAction, reimagineUploadedImageAction, translateTextAction } from '@/lib/actions';
 
 
 interface CreationFull extends Creation {
@@ -959,3 +959,4 @@ const ImageItem: React.FC<{ imageId: string, alt: string }> = ({ imageId, alt })
   return <Image src={imageUrl} alt={alt} fill className="object-contain transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;
 };
     
+
