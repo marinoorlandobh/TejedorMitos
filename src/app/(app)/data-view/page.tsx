@@ -19,10 +19,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-interface EnrichedCreation extends Creation {
-    textOutput?: TextOutputModel;
-}
-
 const getCulture = (c: Creation) => (c.params as any).culture || (c.params as any).mythologicalContext || (c.params as any).contextCulture || 'N/A';
 const getEntity = (c: Creation) => (c.params as any).entity || (c.params as any).entityTheme || (c.params as any).contextEntity || 'N/A';
 
@@ -68,7 +64,7 @@ const OutputDetailsCell: React.FC<{ creation: Creation }> = ({ creation }) => {
 
         fetchOutput();
         return () => { isActive = false; };
-    }, [creation.outputId, getTextOutput]);
+    }, [creation.id, creation.outputId, getTextOutput]);
     
     const inputDetails = getInputDetails(creation);
     
@@ -112,8 +108,6 @@ export default function DataViewPage() {
             c.type.toLowerCase().includes(lowercasedFilter) ||
             getCulture(c).toLowerCase().includes(lowercasedFilter) ||
             getEntity(c).toLowerCase().includes(lowercasedFilter)
-            // Note: Full-text search on details is removed for performance.
-            // A more advanced search would require a different approach.
         );
     }, [searchTerm, creations, translationFilter]);
     
@@ -202,9 +196,9 @@ export default function DataViewPage() {
         }
     };
     
-    const toggleTranslatedStatus = (creation: Creation) => {
+    const toggleTranslatedStatus = async (creation: Creation) => {
         const newStatus = !creation.isTranslated;
-        updateCreationTranslatedStatus(creation.id, newStatus);
+        await updateCreationTranslatedStatus(creation.id, newStatus);
         toast({
             title: newStatus ? "Marcado como Traducido" : "Marcado como No Traducido",
             duration: 2000
@@ -434,5 +428,3 @@ export default function DataViewPage() {
         </ScrollArea>
     );
 }
-
-    
