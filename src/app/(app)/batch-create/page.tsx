@@ -398,26 +398,21 @@ export default function BatchCreatePage() {
     
     let processedResults = initialResults;
 
-    if (data.provider === 'google-ai') {
-        toast({ title: "Extrayendo Nombres...", description: "Preparando el lote para la generación." });
-        try {
-            const { details } = await extractBatchDetailsFromPromptsAction({ 
-                prompts: initialResults.map(r => r.prompt) 
-            });
-            processedResults = initialResults.map((r, i) => ({
-                ...r,
-                name: details[i].creationName,
-                entity: details[i].entity
-            }));
-            setResults(processedResults);
-            toast({ title: "Nombres Extraídos", description: "Comenzando la generación de imágenes." });
-        } catch (error: any) {
-             toast({ variant: "destructive", title: "Error al Extraer Nombres", description: "No se pudo preparar el lote. Revisa tu conexión o la cuota de API." });
-             setIsProcessingBatch(false);
-             return;
-        }
-    } else {
+    toast({ title: "Extrayendo Nombres...", description: "Preparando el lote para la generación." });
+    try {
+        const { details } = await extractBatchDetailsFromPromptsAction({ 
+            prompts: initialResults.map(r => r.prompt) 
+        });
         processedResults = initialResults.map((r, i) => ({
+            ...r,
+            name: details[i].creationName,
+            entity: details[i].entity
+        }));
+        setResults(processedResults);
+        toast({ title: "Nombres Extraídos", description: "Comenzando la generación de imágenes." });
+    } catch (error: any) {
+         toast({ variant: "destructive", title: "Error al Extraer Nombres", description: "No se pudo preparar el lote. Se usarán nombres genéricos. Error: " + error.message });
+         processedResults = initialResults.map((r, i) => ({
             ...r,
             name: `Creación en Lote #${i + 1}`,
             entity: r.prompt.split(' ').slice(0, 3).join(' ')
@@ -511,7 +506,7 @@ export default function BatchCreatePage() {
       if (updatedResults[index].provider === 'google-ai') {
         const details = await extractDetailsFromPromptAction({ promptText: fixedPrompt });
         finalResults = updatedResults.map((r, idx) => 
-            idx === index ? { ...r, name: details.creationName, entity: details.entity } : r
+            idx === editingIndex ? { ...r, name: details.creationName, entity: details.entity } : r
         );
       }
       
