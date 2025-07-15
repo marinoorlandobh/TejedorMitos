@@ -572,16 +572,9 @@ export default function GalleryPage() {
 
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" disabled={copyingId === creation.id || usingPromptId === creation.id}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Eliminar</p>
-                            </TooltipContent>
-                          </Tooltip>
+                           <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" disabled={copyingId === creation.id || usingPromptId === creation.id}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
