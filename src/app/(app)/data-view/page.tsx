@@ -14,7 +14,7 @@ import type { Creation, TextOutputModel, GeneratedParams, AnalyzedParams, Reimag
 import { Badge } from '@/components/ui/badge';
 import Papa from 'papaparse';
 import { Textarea } from '@/components/ui/textarea';
-import { translateTextAction } from '@/lib/actions';
+import { translateTextAction, translateCreationDetailsAction } from '@/lib/actions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -55,7 +55,7 @@ const getFullDetails = (c: EnrichedCreation) => {
 
 
 export default function DataViewPage() {
-    const { creations, getTextOutput, updateCreationName, updateCreationParams, updateCreationTranslatedStatus, loading: historyLoading } = useHistory();
+    const { creations, getTextOutput, updateCreationName, updateCreationParams, updateCreationTranslatedStatus, updateCreationNameAndParams, loading: historyLoading } = useHistory();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [enrichedCreations, setEnrichedCreations] = useState<EnrichedCreation[]>([]);
@@ -65,6 +65,7 @@ export default function DataViewPage() {
     const [editingValue, setEditingValue] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isTranslating, setIsTranslating] = useState(false);
+    const [translatingId, setTranslatingId] = useState<string | null>(null);
     const [translationFilter, setTranslationFilter] = useState<'all' | 'translated' | 'untranslated'>('all');
 
 
@@ -178,7 +179,7 @@ export default function DataViewPage() {
         }
     };
 
-    const handleTranslate = async () => {
+    const handleTranslateInPlace = async () => {
         if (!editingValue) return;
         setIsTranslating(true);
         toast({ title: "Traduciendo...", description: "La IA está traduciendo el texto." });
@@ -200,6 +201,33 @@ export default function DataViewPage() {
             title: newStatus ? "Marcado como Traducido" : "Marcado como No Traducido",
             duration: 2000
         });
+    };
+
+    const handleTranslateRow = async (creation: Creation) => {
+        setTranslatingId(creation.id);
+        toast({ title: "Traduciendo fila...", description: "La IA está procesando el nombre y los detalles." });
+        try {
+            const details = getInputDetails(creation);
+            const result = await translateCreationDetailsAction({
+                name: creation.name,
+                details: details,
+            });
+
+            const newParams = { ...creation.params };
+            if (creation.type === 'generated') (newParams as GeneratedParams).details = result.translatedDetails;
+            if (creation.type === 'reimagined') (newParams as ReimaginedParams).contextDetails = result.translatedDetails;
+            if (creation.type === 'analyzed') (newParams as AnalyzedParams).additionalDetails = result.translatedDetails;
+
+            await updateCreationNameAndParams(creation.id, result.translatedName, newParams);
+            await updateCreationTranslatedStatus(creation.id, true);
+
+            toast({ title: "¡Fila Traducida!", description: "La creación ha sido actualizada." });
+
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "Error de Traducción", description: e.message });
+        } finally {
+            setTranslatingId(null);
+        }
     };
 
 
@@ -288,12 +316,12 @@ export default function DataViewPage() {
                                             <TableHead className="w-[10%]">Cultura/Contexto</TableHead>
                                             <TableHead className="w-[15%]">Entidad/Tema</TableHead>
                                             <TableHead>Detalles / Salida IA</TableHead>
-                                            <TableHead className="w-[5%] text-center">Traducido</TableHead>
+                                            <TableHead className="w-[10%] text-center">Acciones</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {filteredCreations.map(creation => (
-                                            <TableRow key={creation.id}>
+                                            <TableRow key={creation.id} className={cn(translatingId === creation.id && "opacity-50 pointer-events-none")}>
                                                 <TableCell className="font-medium align-top group relative">
                                                     {editingCell?.id === creation.id && editingCell.field === 'name' ? (
                                                         <div className="space-y-2">
@@ -301,7 +329,7 @@ export default function DataViewPage() {
                                                             <div className="flex items-center gap-1">
                                                                 <Button size="icon" className="h-6 w-6" onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? <Loader2 className="animate-spin h-3 w-3" /> : <Save className="h-3 w-3" />}</Button>
                                                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCancelEdit}><X className="h-3 w-3" /></Button>
-                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslate} disabled={isTranslating}>{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
+                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslateInPlace} disabled={isTranslating}>{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
                                                             </div>
                                                         </div>
                                                     ) : (
@@ -328,7 +356,7 @@ export default function DataViewPage() {
                                                             <div className="flex items-center gap-1">
                                                                 <Button size="icon" className="h-6 w-6" onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? <Loader2 className="animate-spin h-3 w-3" /> : <Save className="h-3 w-3" />}</Button>
                                                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCancelEdit}><X className="h-3 w-3" /></Button>
-                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslate} disabled={isTranslating}>{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
+                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslateInPlace} disabled={isTranslating}>{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
                                                             </div>
                                                             <p className="text-xs text-foreground mt-2 border-t pt-2">{getOutputDetails(creation)}</p>
                                                         </div>
@@ -345,24 +373,42 @@ export default function DataViewPage() {
                                                    )}
                                                 </TableCell>
                                                 <TableCell className="align-top text-center">
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={() => toggleTranslatedStatus(creation)}
-                                                                className={cn(
-                                                                    "h-7 w-7",
-                                                                    creation.isTranslated ? "text-primary hover:text-primary/80" : "text-muted-foreground/50 hover:text-muted-foreground"
-                                                                )}
-                                                            >
-                                                                <Languages className="h-5 w-5" />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>{creation.isTranslated ? "Marcar como no traducido" : "Marcar como traducido"}</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => toggleTranslatedStatus(creation)}
+                                                                    className={cn(
+                                                                        "h-7 w-7",
+                                                                        creation.isTranslated ? "text-primary hover:text-primary/80" : "text-muted-foreground/50 hover:text-muted-foreground"
+                                                                    )}
+                                                                >
+                                                                    <Languages className="h-5 w-5" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>{creation.isTranslated ? "Marcar como no traducido" : "Marcar como traducido"}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                         <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="icon"
+                                                                    onClick={() => handleTranslateRow(creation)}
+                                                                    disabled={translatingId === creation.id}
+                                                                    className="h-7 w-7"
+                                                                >
+                                                                    {translatingId === creation.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4 text-accent" />}
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Traducir Nombre y Detalles</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}

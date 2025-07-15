@@ -20,6 +20,7 @@ interface HistoryContextType {
   ) => Promise<{ creationId: string; imageId?: string; } | undefined>;
   updateCreationName: (id: string, newName: string) => Promise<void>;
   updateCreationParams: (id: string, newParams: Creation['params']) => Promise<void>;
+  updateCreationNameAndParams: (id: string, newName: string, newParams: Creation['params']) => Promise<void>;
   updateCreationTranslatedStatus: (id: string, isTranslated: boolean) => Promise<void>;
   updateCreationImageAndOutput: (id: string, params: Creation['params'], newImageDataUri: string, newOutputData: GeneratedOutputData | ReimaginedOutputData) => Promise<Creation | undefined>;
   deleteCreation: (id: string) => Promise<void>;
@@ -209,6 +210,23 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e: any) {
       console.error("Failed to update creation params:", e);
       setError(e.message || "Failed to update params.");
+      setLoading(false);
+    }
+  };
+
+  const updateCreationNameAndParams = async (id: string, newName: string, newParams: Creation['params']) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await db.creations.update(id, {
+        name: newName,
+        params: newParams,
+        updatedAt: Date.now()
+      });
+      setLoading(false);
+    } catch (e: any) {
+      console.error("Failed to update creation name and params:", e);
+      setError(e.message || "Failed to update name and params.");
       setLoading(false);
     }
   };
@@ -455,7 +473,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   return (
-    <HistoryContext.Provider value={{ creations, addCreation, updateCreationName, updateCreationParams, updateCreationTranslatedStatus, updateCreationImageAndOutput, deleteCreation, getCreationById, getImageData, getTextOutput, exportData, importData, clearAllData, loading, error }}>
+    <HistoryContext.Provider value={{ creations, addCreation, updateCreationName, updateCreationParams, updateCreationNameAndParams, updateCreationTranslatedStatus, updateCreationImageAndOutput, deleteCreation, getCreationById, getImageData, getTextOutput, exportData, importData, clearAllData, loading, error }}>
       {children}
     </HistoryContext.Provider>
   );
