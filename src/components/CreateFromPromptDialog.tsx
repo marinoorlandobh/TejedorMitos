@@ -39,6 +39,7 @@ const createMythSchema = z.object({
   aspectRatio: z.string().min(1, "La relación de aspecto es obligatoria."),
   imageQuality: z.string().min(1, "La calidad de imagen es obligatoria."),
   provider: z.enum(['google-ai', 'stable-diffusion']).default('google-ai'),
+  checkpoint: z.string().optional(),
 });
 
 type CreateMythFormData = z.infer<typeof createMythSchema>;
@@ -62,6 +63,7 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
       aspectRatio: ASPECT_RATIOS[0],
       imageQuality: IMAGE_QUALITIES[0],
       provider: 'google-ai',
+      checkpoint: '',
     },
   });
 
@@ -77,14 +79,17 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
       aspectRatio: ASPECT_RATIOS[0],
       imageQuality: IMAGE_QUALITIES[0],
       provider: 'google-ai',
+      checkpoint: '',
     });
     setGeneratedImage(null);
     setGeneratedPrompt(null);
   }, [prompt, form, open]);
 
   const selectedCulture = form.watch('culture');
+  const selectedProvider = form.watch('provider');
 
-  async function generateWithStableDiffusion(prompt: string, aspectRatio: string, imageQuality: string) {
+
+  async function generateWithStableDiffusion(prompt: string, aspectRatio: string, imageQuality: string, checkpoint?: string) {
     const apiUrl = 'http://127.0.0.1:7860';
     const dimensions = mapAspectRatioToDimensions(aspectRatio);
     const steps = mapQualityToSteps(imageQuality);
@@ -101,6 +106,7 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
         width: dimensions.width,
         height: dimensions.height,
         restore_faces: true,
+        override_settings: checkpoint ? { sd_model_checkpoint: checkpoint } : {},
     };
 
     try {
@@ -144,6 +150,7 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
       aspectRatio: data.aspectRatio,
       imageQuality: data.imageQuality,
       provider: data.provider,
+      checkpoint: data.checkpoint,
     };
 
     try {
@@ -151,7 +158,7 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
       
       if (data.provider === 'stable-diffusion') {
         const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${aiInputParams.entity}' from ${aiInputParams.culture} mythology. Key scene details include: ${aiInputParams.details}. The desired image quality is ${aiInputParams.imageQuality}.`;
-        result = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality);
+        result = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality, aiInputParams.checkpoint);
       } else {
         result = await generateMythImageAction(aiInputParams);
       }
@@ -325,6 +332,21 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
                           )}
                         />
                   </div>
+                   {selectedProvider === 'stable-diffusion' && (
+                    <FormField
+                      control={form.control}
+                      name="checkpoint"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Checkpoint Base (Opcional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: Juggernaut, DreamShaper, etc." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <Button type="submit" disabled={isLoading} className="w-full">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                     Tejer Mi Mito
@@ -383,4 +405,3 @@ export function CreateFromPromptDialog({ open, onOpenChange, prompt }: CreateFro
     </Dialog>
   );
 }
-
