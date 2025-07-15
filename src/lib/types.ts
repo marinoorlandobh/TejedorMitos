@@ -23,6 +23,7 @@ export interface GeneratedParams {
   aspectRatio: string;
   imageQuality: string;
   provider: 'google-ai' | 'stable-diffusion';
+  checkpoint?: string;
 }
 
 export interface AnalyzedParams {
@@ -39,6 +40,7 @@ export interface ReimaginedParams {
   aspectRatio: string;
   imageQuality: string;
   provider: 'google-ai' | 'stable-diffusion';
+  checkpoint?: string;
 }
 
 export interface ImageDataModel {

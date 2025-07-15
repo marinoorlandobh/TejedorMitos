@@ -32,6 +32,7 @@ const reimagineImageSchema = z.object({
   aspectRatio: z.string().min(1, "La nueva relación de aspecto es obligatoria."),
   imageQuality: z.string().min(1, "La nueva calidad de imagen es obligatoria."),
   provider: z.enum(['google-ai', 'stable-diffusion']).default('google-ai'),
+  checkpoint: z.string().optional(),
 });
 
 type ReimagineImageFormData = z.infer<typeof reimagineImageSchema>;
@@ -67,8 +68,11 @@ export default function ReimagineImagePage() {
       aspectRatio: ASPECT_RATIOS[0],
       imageQuality: IMAGE_QUALITIES[0],
       provider: 'google-ai',
+      checkpoint: '',
     },
   });
+
+  const selectedProvider = form.watch('provider');
 
  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -86,7 +90,7 @@ export default function ReimagineImagePage() {
     }
   };
 
-  async function reimagineWithStableDiffusion(originalImage: string, params: ReimaginedParams) {
+  async function reimagineWithStableDiffusion(originalImage: string, params: ReimaginedParams, checkpoint?: string) {
     const apiUrl = 'http://127.0.0.1:7860';
     
     // We need to derive a prompt using the Google AI flow first, even for SD
@@ -115,6 +119,7 @@ export default function ReimagineImagePage() {
         height: dimensions.height,
         restore_faces: true,
         denoising_strength: 0.75, // Important for img2img
+        override_settings: checkpoint ? { sd_model_checkpoint: checkpoint } : {},
     };
 
     try {
@@ -176,13 +181,14 @@ export default function ReimagineImagePage() {
       aspectRatio: data.aspectRatio,
       imageQuality: data.imageQuality,
       provider: data.provider,
+      checkpoint: data.checkpoint,
     };
 
     try {
       let result;
       
       if (data.provider === 'stable-diffusion') {
-        result = await reimagineWithStableDiffusion(originalImageDataUri, aiInputParams);
+        result = await reimagineWithStableDiffusion(originalImageDataUri, aiInputParams, data.checkpoint);
       } else {
         result = await reimagineUploadedImageAction({
           originalImage: originalImageDataUri,
@@ -397,6 +403,21 @@ export default function ReimagineImagePage() {
                             )}
                         />
                    </div>
+                   {selectedProvider === 'stable-diffusion' && (
+                    <FormField
+                      control={form.control}
+                      name="checkpoint"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Checkpoint Base (Opcional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: Juggernaut, DreamShaper, etc." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <Button type="submit" disabled={isLoading || !originalImagePreview} className="w-full">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Palette className="mr-2 h-4 w-4" />}
                     Reimaginar Imagen
@@ -462,6 +483,3 @@ export default function ReimagineImagePage() {
     </ScrollArea>
   );
 }
-
-    
-

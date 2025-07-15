@@ -22,6 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { mapAspectRatioToDimensions, mapQualityToSteps } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 // Helper function to add a timeout to a promise
 const withTimeout = <T,>(promise: Promise<T>, ms: number, timeoutError = new Error(`La operación tardó más de ${ms / 1000} segundos y fue cancelada.`)): Promise<T> => {
@@ -51,6 +52,7 @@ const batchCreateSchema = z.object({
   aspectRatio: z.string().min(1, "La relación de aspecto es obligatoria."),
   imageQuality: z.string().min(1, "La calidad de imagen es obligatoria."),
   provider: z.enum(['google-ai', 'stable-diffusion']).default('google-ai'),
+  checkpoint: z.string().optional(),
 });
 
 type BatchCreateFormData = z.infer<typeof batchCreateSchema>;
@@ -59,6 +61,7 @@ interface ResultState {
     prompt: string;
     culture: string;
     provider: 'google-ai' | 'stable-diffusion';
+    checkpoint?: string;
     status: 'pending' | 'processing' | 'success' | 'error';
     imageId?: string;
     name?: string;
@@ -88,10 +91,12 @@ export default function BatchCreatePage() {
       aspectRatio: ASPECT_RATIOS[0],
       imageQuality: IMAGE_QUALITIES[0],
       provider: 'google-ai',
+      checkpoint: '',
     },
   });
   
   const promptsValue = form.watch('prompts');
+  const selectedProvider = form.watch('provider');
 
   useEffect(() => {
     const cachedData = localStorage.getItem('mythWeaverBatchCreateCache');
@@ -176,7 +181,7 @@ export default function BatchCreatePage() {
     return lines;
   };
 
-    const generateWithStableDiffusion = useCallback(async (prompt: string, aspectRatio: string, imageQuality: string) => {
+    const generateWithStableDiffusion = useCallback(async (prompt: string, aspectRatio: string, imageQuality: string, checkpoint?: string) => {
         const apiUrl = 'http://127.0.0.1:7860';
         const dimensions = mapAspectRatioToDimensions(aspectRatio);
         const steps = mapQualityToSteps(imageQuality);
@@ -193,6 +198,7 @@ export default function BatchCreatePage() {
             width: dimensions.width,
             height: dimensions.height,
             restore_faces: true,
+            override_settings: checkpoint ? { sd_model_checkpoint: checkpoint } : {},
         };
 
         try {
@@ -249,13 +255,14 @@ export default function BatchCreatePage() {
             aspectRatio: settings.aspectRatio,
             imageQuality: settings.imageQuality,
             provider: resultToProcess.provider,
+            checkpoint: resultToProcess.checkpoint,
         };
 
         try {
             let imageResult;
             if (resultToProcess.provider === 'stable-diffusion') {
                  const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${aiInputParams.entity}' from ${aiInputParams.culture} mythology. Key scene details include: ${resultToProcess.prompt}. The desired image quality is ${aiInputParams.imageQuality}.`;
-                imageResult = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality);
+                imageResult = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality, aiInputParams.checkpoint);
             } else {
                 imageResult = await generateMythImageAction(aiInputParams);
             }
@@ -283,7 +290,10 @@ export default function BatchCreatePage() {
                 toast({ title: "Proceso Detenido", description: "La generación de imágenes fue detenida por el usuario." });
                 break;
             }
-            await runSinglePromptProcessing(i);
+            const currentResult = results[i];
+            if (currentResult.status === 'pending' || currentResult.status === 'error') {
+              await runSinglePromptProcessing(i);
+            }
             setProgress(prev => ({ ...prev, current: i + 1 }));
         }
 
@@ -299,7 +309,7 @@ export default function BatchCreatePage() {
         if (!signal.aborted) {
             toast({ title: "Generación de Imágenes Terminada", description: "Revisa los resultados en la lista." });
         }
-    }, [results.length, runSinglePromptProcessing, toast]);
+    }, [results, runSinglePromptProcessing, toast]);
 
     
   const getTaskForLine = (line: string, defaultCulture: string) => {
@@ -340,6 +350,7 @@ export default function BatchCreatePage() {
         prompt: t.prompt, 
         culture: t.culture, 
         provider: data.provider, 
+        checkpoint: data.checkpoint,
         status: 'pending' as const
     }));
     
@@ -651,6 +662,21 @@ export default function BatchCreatePage() {
                         </FormItem>
                       )}
                     />
+                    {selectedProvider === 'stable-diffusion' && (
+                        <FormField
+                            control={form.control}
+                            name="checkpoint"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Checkpoint Base (Opcional)</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Ej: Juggernaut, DreamShaper, etc." {...field} disabled={isBatchActive} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                   <div className="flex w-full items-center gap-2">
                     <Button type="submit" disabled={isBatchActive} className="flex-grow">
                       <Sparkles className="mr-2 h-4 w-4" />
@@ -810,7 +836,3 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
 
   return <Image src={imageUrl} alt={`Generated: ${name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />;
 };
-
-    
-
-    

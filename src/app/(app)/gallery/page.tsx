@@ -779,6 +779,7 @@ export default function GalleryPage() {
                                           {renderSelectField('Cultura', 'culture', MYTHOLOGICAL_CULTURES)}
                                           {renderTextField('Entidad', 'entity', 'Ej: Zeus, Fénix', true)}
                                           {renderSelectField('Motor de Generación', 'provider', IMAGE_PROVIDERS)}
+                                          {(editedParams as GeneratedParams).provider === 'stable-diffusion' && renderTextField('Checkpoint Base', 'checkpoint', 'Ej: Juggernaut')}
                                           {renderSelectField('Estilo', 'style', IMAGE_STYLES)}
                                           {renderSelectField('Relación de Aspecto', 'aspectRatio', ASPECT_RATIOS)}
                                           {renderSelectField('Calidad', 'imageQuality', IMAGE_QUALITIES)}
@@ -801,6 +802,7 @@ export default function GalleryPage() {
                                             <Label className="text-base font-semibold text-primary">Nuevos Parámetros</Label>
                                           </div>
                                           {renderSelectField('Motor de Generación', 'provider', IMAGE_PROVIDERS)}
+                                          {(editedParams as ReimaginedParams).provider === 'stable-diffusion' && renderTextField('Checkpoint Base', 'checkpoint', 'Ej: Juggernaut')}
                                           {renderSelectField('Nuevo Estilo Visual', 'visualStyle', IMAGE_STYLES)}
                                           {renderSelectField('Nueva Relación de Aspecto', 'aspectRatio', ASPECT_RATIOS)}
                                           {renderSelectField('Nueva Calidad', 'imageQuality', IMAGE_QUALITIES)}
@@ -848,6 +850,9 @@ export default function GalleryPage() {
                         })()}
                         {(selectedCreation.params as any).provider && (
                           <p><strong>Motor:</strong> {IMAGE_PROVIDERS.find(prov => prov.id === (selectedCreation.params as any).provider)?.name || (selectedCreation.params as any).provider || 'N/D'}</p>
+                        )}
+                        {(selectedCreation.params as any).provider === 'stable-diffusion' && (selectedCreation.params as any).checkpoint && (
+                          <p><strong>Checkpoint Base:</strong> {(selectedCreation.params as any).checkpoint}</p>
                         )}
                         <p><strong>Calidad:</strong> {(selectedCreation.params as any).imageQuality || 'N/D'}</p>
                         <p><strong>Relación de Aspecto:</strong> {(selectedCreation.params as any).aspectRatio || 'N/D'}</p>
@@ -958,5 +963,3 @@ const ImageItem: React.FC<{ imageId: string, alt: string }> = ({ imageId, alt })
 
   return <Image src={imageUrl} alt={alt} fill className="object-contain transition-transform duration-300 group-hover:scale-105" data-ai-hint="gallery art" />;
 };
-    
-
