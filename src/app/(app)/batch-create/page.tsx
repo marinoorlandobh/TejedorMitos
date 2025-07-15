@@ -309,23 +309,38 @@ export default function BatchCreatePage() {
 
 
     const processImageGeneration = useCallback(async (signal: AbortSignal) => {
-        for (let i = 0; i < results.length; i++) {
+        let currentResults;
+        // Use a functional update to get the latest state
+        setResults(prev => {
+            currentResults = prev;
+            return prev;
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // Ensure state is settled
+
+        if (!currentResults) {
+            console.error("Could not get current results for processing.");
+            setIsProcessingBatch(false);
+            return;
+        }
+
+        for (let i = 0; i < currentResults.length; i++) {
             if (signal.aborted) {
                 toast({ title: "Proceso Detenido", description: "La generación de imágenes fue detenida por el usuario." });
                 break;
             }
-            const currentResult = results[i];
+            const currentResult = currentResults[i]; // Use the local copy
             if (currentResult.status === 'pending' || currentResult.status === 'error') {
               await runSinglePromptProcessing(i);
             }
             setProgress(prev => ({ ...prev, current: i + 1 }));
         }
 
-        setResults(currentResults => {
-            if (!currentResults.some(r => r.status !== 'success')) {
+        setResults(prev => {
+            if (!prev.some(r => r.status !== 'success')) {
                 setIsProcessingBatch(false);
             }
-            return currentResults;
+            return prev;
         });
 
         abortControllerRef.current = null;
@@ -333,7 +348,7 @@ export default function BatchCreatePage() {
         if (!signal.aborted) {
             toast({ title: "Generación de Imágenes Terminada", description: "Revisa los resultados en la lista." });
         }
-    }, [results, runSinglePromptProcessing, toast]);
+    }, [runSinglePromptProcessing, toast]);
 
     
   const getTaskForLine = (line: string, defaultCulture: string) => {
@@ -379,20 +394,22 @@ export default function BatchCreatePage() {
     }));
     
     setResults(initialResults);
+    setProgress({ current: 0, total: tasks.length });
     
-    toast({ title: "Extrayendo Nombres...", description: "Preparando el lote para la generación." });
+    let processedResults = initialResults;
 
     if (data.provider === 'google-ai') {
+        toast({ title: "Extrayendo Nombres...", description: "Preparando el lote para la generación." });
         try {
             const { details } = await extractBatchDetailsFromPromptsAction({ 
                 prompts: initialResults.map(r => r.prompt) 
             });
-            initialResults = initialResults.map((r, i) => ({
+            processedResults = initialResults.map((r, i) => ({
                 ...r,
                 name: details[i].creationName,
                 entity: details[i].entity
             }));
-            setResults(initialResults);
+            setResults(processedResults);
             toast({ title: "Nombres Extraídos", description: "Comenzando la generación de imágenes." });
         } catch (error: any) {
              toast({ variant: "destructive", title: "Error al Extraer Nombres", description: "No se pudo preparar el lote. Revisa tu conexión o la cuota de API." });
@@ -400,15 +417,13 @@ export default function BatchCreatePage() {
              return;
         }
     } else {
-        initialResults = initialResults.map((r, i) => ({
+        processedResults = initialResults.map((r, i) => ({
             ...r,
             name: `Creación en Lote #${i + 1}`,
             entity: r.prompt.split(' ').slice(0, 3).join(' ')
         }));
-        setResults(initialResults);
+        setResults(processedResults);
     }
-    
-    setProgress({ current: 0, total: tasks.length });
     
     setTimeout(() => processImageGeneration(signal), 100);
   }
