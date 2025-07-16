@@ -92,36 +92,40 @@ async function generateWithGoogleAI(prompt: string) {
 
 export async function createMythFromBatch(input: CreateMythFromBatchInput): Promise<CreateMythFromBatchOutput> {
     
+    // First, construct the full prompt that will be used for both name extraction and image generation.
+    // The entity here is intentionally generic at first, as the extraction will define it.
+    const fullPrompt = `A visually rich image in the style of ${input.style}. The primary subject is from ${input.culture} mythology. Key scene details include: ${input.details}. The desired image quality is ${input.imageQuality}.`;
+
     let name = `Creación en Lote`;
     let entity = 'Desconocido';
     let extractionSuccess = false;
 
-    // First attempt to extract details
+    // Attempt to extract details using the full, rich prompt.
     try {
-        const { output: extractedDetails } = await extractDetailsPrompt({ promptText: input.details });
+        const { output: extractedDetails } = await extractDetailsPrompt({ promptText: fullPrompt });
         if (extractedDetails) {
             name = extractedDetails.creationName;
             entity = extractedDetails.entity;
             extractionSuccess = true;
         }
     } catch (e) {
-        console.warn(`Initial detail extraction failed for prompt: "${input.details}". Error: ${e}`);
+        console.warn(`Initial detail extraction failed for prompt: "${fullPrompt}". Error: ${e}`);
     }
 
     // If first attempt failed, wait 10 seconds and retry
     if (!extractionSuccess) {
-        console.log(`Retrying detail extraction in 10 seconds for prompt: "${input.details}"`);
+        console.log(`Retrying detail extraction in 10 seconds for prompt: "${fullPrompt}"`);
         await delay(10000); // 10 second delay
         try {
-            const { output: extractedDetails } = await extractDetailsPrompt({ promptText: input.details });
+            const { output: extractedDetails } = await extractDetailsPrompt({ promptText: fullPrompt });
             if (extractedDetails) {
                 name = extractedDetails.creationName;
                 entity = extractedDetails.entity;
                 extractionSuccess = true;
-                console.log(`Retry successful for prompt: "${input.details}"`);
+                console.log(`Retry successful for prompt: "${fullPrompt}"`);
             }
         } catch (e) {
-            console.error(`Retry for detail extraction also failed for prompt: "${input.details}". Using fallback names. Error: ${e}`);
+            console.error(`Retry for detail extraction also failed for prompt: "${fullPrompt}". Using fallback names. Error: ${e}`);
         }
     }
     
@@ -131,9 +135,7 @@ export async function createMythFromBatch(input: CreateMythFromBatchInput): Prom
         entity = input.details.split(' ').slice(0, 3).join(' ');
     }
     
-    // Now, generate the image using the extracted/fallback entity.
-    const fullPrompt = `A visually rich image in the style of ${input.style}. The primary subject is the entity '${entity}' from ${input.culture} mythology. Key scene details include: ${input.details}. The desired image quality is ${input.imageQuality}.`;
-    
+    // Now, generate the image using the full prompt.
     // This server flow now only handles Google AI for the batch process. SD is handled client-side and doesn't use this flow.
     const imageUrl = await generateWithGoogleAI(fullPrompt);
 
