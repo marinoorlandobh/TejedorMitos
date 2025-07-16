@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ScrollText, Wand2, ImageIcon, GalleryVerticalEnd, Settings, Sparkles, Palette, FileText, Layers, FileSpreadsheet, FileSignature, List } from "lucide-react";
+import { ScrollText, Wand2, ImageIcon, GalleryVerticalEnd, Settings, Sparkles, Palette, FileText, Layers, FileSpreadsheet, FileSignature, List, Library } from "lucide-react";
 import {
   Sidebar,
   SidebarHeader,
@@ -30,6 +30,7 @@ const navItems = [
   { href: "/import-csv", label: "Importar CSV", icon: FileSpreadsheet },
   { href: "/gallery", label: "Mi Galería", icon: GalleryVerticalEnd },
   { href: "/data-view", label: "Vista de Datos", icon: List },
+  { href: "/encyclopedia", label: "Enciclopedia", icon: Library },
   { href: "/settings", label: "Ajustes", icon: Settings },
 ];
 
@@ -86,3 +87,5 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
+    
