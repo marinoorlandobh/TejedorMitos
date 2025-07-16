@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDescriptionComponent } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { generateMythImageAction, extractDetailsFromPromptAction, fixImagePromptAction, extractBatchDetailsFromPromptsAction } from '@/lib/actions';
+import { createMythFromBatchAction, fixImagePromptAction, regenerateCreationNameAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -23,27 +23,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { mapAspectRatioToDimensions, mapQualityToSteps } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-
-// Helper function to add a timeout to a promise
-const withTimeout = <T,>(promise: Promise<T>, ms: number, timeoutError = new Error(`La operación tardó más de ${ms / 1000} segundos y fue cancelada.`)): Promise<T> => {
-    return new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-            reject(timeoutError);
-        }, ms);
-
-        promise.then(
-            (res) => {
-                clearTimeout(timeoutId);
-                resolve(res);
-            },
-            (err) => {
-                clearTimeout(timeoutId);
-                reject(err);
-            }
-        );
-    });
-};
-
 
 const batchCreateSchema = z.object({
   prompts: z.string().min(1, "Se requiere al menos un prompt."),
@@ -205,13 +184,13 @@ export default function BatchCreatePage() {
     return lines;
   };
 
-    const generateWithStableDiffusion = useCallback(async (prompt: string, aspectRatio: string, imageQuality: string, checkpoint?: string) => {
+    const generateWithStableDiffusion = useCallback(async (fullPrompt: string, aspectRatio: string, imageQuality: string, checkpoint?: string) => {
         const apiUrl = 'http://127.0.0.1:7860';
         const dimensions = mapAspectRatioToDimensions(aspectRatio);
         const steps = mapQualityToSteps(imageQuality);
 
         const payload = {
-            prompt,
+            prompt: fullPrompt,
             negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
             seed: -1,
             sampler_name: "DPM++ 2M Karras",
@@ -244,7 +223,7 @@ export default function BatchCreatePage() {
                 throw new Error("La API de Stable Diffusion no devolvió ninguna imagen.");
             }
 
-            return { imageUrl: `data:image/png;base64,${result.images[0]}`, prompt };
+            return `data:image/png;base64,${result.images[0]}`;
         } catch (e: any) {
             if (e.message.includes('Failed to fetch')) {
                 throw new Error(`Error de red o CORS. Asegúrate de que Stable Diffusion Web UI se ejecuta con '--cors-allow-origins="*"' y que puedes acceder a ${apiUrl}/docs`);
@@ -261,19 +240,13 @@ export default function BatchCreatePage() {
             return prev.map((r, idx) => idx === index ? { ...r, status: 'processing', error: undefined } : r);
         });
         
-        // This is a tick to ensure state is updated before proceeding.
         await new Promise(resolve => setTimeout(resolve, 0));
         
-        if (!resultToProcess || !resultToProcess.name || !resultToProcess.entity) {
-             setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: "Faltan nombre y entidad. Reintenta la extracción de nombres." } : r));
-             return false;
-        }
-
         const settings = form.getValues();
 
         const aiInputParams: GeneratedParams = {
             culture: resultToProcess.culture,
-            entity: resultToProcess.entity,
+            entity: '', // Entity is now determined by the flow
             details: resultToProcess.prompt,
             style: settings.style,
             aspectRatio: settings.aspectRatio,
@@ -285,24 +258,30 @@ export default function BatchCreatePage() {
         try {
             let imageResult;
             if (resultToProcess.provider === 'stable-diffusion') {
-                 const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${aiInputParams.entity}' from ${aiInputParams.culture} mythology. Key scene details include: ${resultToProcess.prompt}. The desired image quality is ${aiInputParams.imageQuality}.`;
-                imageResult = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality, aiInputParams.checkpoint);
+                 const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity 'A mythological entity' from ${aiInputParams.culture} mythology. Key scene details include: ${resultToProcess.prompt}. The desired image quality is ${aiInputParams.imageQuality}.`;
+                const imageUrl = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality, aiInputParams.checkpoint);
+                imageResult = {
+                    imageUrl: imageUrl,
+                    prompt: fullPrompt,
+                    name: `Creación SD #${index + 1}`, // SD doesn't extract names
+                    entity: 'Desconocido'
+                };
             } else {
-                imageResult = await generateMythImageAction(aiInputParams);
+                imageResult = await createMythFromBatchAction(aiInputParams);
             }
             
-            const creationResult = await addCreation('generated', resultToProcess.name, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
+            const creationResult = await addCreation('generated', imageResult.name, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
             
             if (!creationResult) {
                 throw new Error("Error al guardar la creación en la base de datos.");
             }
             
-            setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageId: creationResult.imageId } : r));
+            setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageId: creationResult.imageId, name: imageResult.name, entity: imageResult.entity } : r));
             return true;
         } catch (error: any) {
             console.error(`Error processing prompt: ${resultToProcess.prompt}`, error);
             const errorMessage = error.message || "Error desconocido";
-            setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: errorMessage } : r));
+            setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'error', error: errorMessage, name: resultToProcess.name || `Fallido #${index+1}` } : r));
             return false;
         }
     }, [addCreation, generateWithStableDiffusion, form]);
@@ -310,13 +289,12 @@ export default function BatchCreatePage() {
 
     const processImageGeneration = useCallback(async (signal: AbortSignal) => {
         let currentResults;
-        // Use a functional update to get the latest state
         setResults(prev => {
             currentResults = prev;
             return prev;
         });
 
-        await new Promise(resolve => setTimeout(resolve, 0)); // Ensure state is settled
+        await new Promise(resolve => setTimeout(resolve, 0)); 
 
         if (!currentResults) {
             console.error("Could not get current results for processing.");
@@ -329,7 +307,7 @@ export default function BatchCreatePage() {
                 toast({ title: "Proceso Detenido", description: "La generación de imágenes fue detenida por el usuario." });
                 break;
             }
-            const currentResult = currentResults[i]; // Use the local copy
+            const currentResult = currentResults[i];
             if (currentResult.status === 'pending' || currentResult.status === 'error') {
               await runSinglePromptProcessing(i);
             }
@@ -396,30 +374,6 @@ export default function BatchCreatePage() {
     setResults(initialResults);
     setProgress({ current: 0, total: tasks.length });
     
-    let processedResults = initialResults;
-
-    toast({ title: "Extrayendo Nombres...", description: "Preparando el lote para la generación." });
-    try {
-        const { details } = await extractBatchDetailsFromPromptsAction({ 
-            prompts: initialResults.map(r => r.prompt) 
-        });
-        processedResults = initialResults.map((r, i) => ({
-            ...r,
-            name: details[i].creationName,
-            entity: details[i].entity
-        }));
-        setResults(processedResults);
-        toast({ title: "Nombres Extraídos", description: "Comenzando la generación de imágenes." });
-    } catch (error: any) {
-         toast({ variant: "destructive", title: "Error al Extraer Nombres", description: "No se pudo preparar el lote. Se usarán nombres genéricos. Error: " + error.message });
-         processedResults = initialResults.map((r, i) => ({
-            ...r,
-            name: `Creación en Lote #${i + 1}`,
-            entity: r.prompt.split(' ').slice(0, 3).join(' ')
-        }));
-        setResults(processedResults);
-    }
-    
     setTimeout(() => processImageGeneration(signal), 100);
   }
 
@@ -455,30 +409,13 @@ export default function BatchCreatePage() {
 
     const task = getTaskForLine(editedPromptText, form.getValues().culture);
     
-    let needsNameExtraction = false;
     let updatedResults = results.map((r, idx) => {
         if (idx === editingIndex) {
-            if (r.provider === 'google-ai' && r.prompt !== task.prompt) {
-                needsNameExtraction = true;
-            }
             return { ...r, prompt: task.prompt, culture: task.culture, status: 'pending' as const };
         }
         return r;
     });
 
-    if (needsNameExtraction) {
-        try {
-            const details = await extractDetailsFromPromptAction({ promptText: task.prompt });
-            updatedResults = updatedResults.map((r, idx) => 
-                idx === editingIndex ? { ...r, name: details.creationName, entity: details.entity } : r
-            );
-        } catch (e: any) {
-            toast({ variant: "destructive", title: "Error", description: `No se pudo extraer el nombre para el prompt editado: ${e.message}`});
-            updatedResults = updatedResults.map((r, idx) =>
-                idx === editingIndex ? { ...r, status: 'error' as const, error: 'Fallo al extraer nombre del prompt editado.' } : r
-            );
-        }
-    }
     setResults(updatedResults);
     
     const indexToProcess = editingIndex;
@@ -500,16 +437,7 @@ export default function BatchCreatePage() {
       const { fixedPrompt } = await fixImagePromptAction({ promptText: originalPrompt });
       toast({ title: "¡Prompt Corregido!", description: "Reintentando la generación con el nuevo prompt." });
       
-      const updatedResults = results.map((r, idx) => idx === index ? { ...r, prompt: fixedPrompt, status: 'pending' as const } : r);
-      let finalResults = updatedResults;
-
-      if (updatedResults[index].provider === 'google-ai') {
-        const details = await extractDetailsFromPromptAction({ promptText: fixedPrompt });
-        finalResults = updatedResults.map((r, idx) => 
-            idx === editingIndex ? { ...r, name: details.creationName, entity: details.entity } : r
-        );
-      }
-      
+      const finalResults = results.map((r, idx) => idx === index ? { ...r, prompt: fixedPrompt, status: 'pending' as const } : r);
       setResults(finalResults);
       
       setTimeout(() => runSinglePromptProcessing(index), 0);
