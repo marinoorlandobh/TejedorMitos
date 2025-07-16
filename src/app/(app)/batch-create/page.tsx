@@ -243,7 +243,7 @@ export default function BatchCreatePage() {
 
         const aiInputParams: GeneratedParams = {
             culture: resultToProcess.culture,
-            entity: '', // Entity is now determined by the flow
+            entity: '', // This is determined by the flow now
             details: resultToProcess.prompt,
             style: settings.style,
             aspectRatio: settings.aspectRatio,
@@ -264,7 +264,15 @@ export default function BatchCreatePage() {
                     entity: 'Desconocido'
                 };
             } else {
-                imageResult = await createMythFromBatchAction(aiInputParams);
+                imageResult = await createMythFromBatchAction({
+                    culture: resultToProcess.culture,
+                    details: resultToProcess.prompt,
+                    style: settings.style,
+                    aspectRatio: settings.aspectRatio,
+                    imageQuality: settings.imageQuality,
+                    provider: resultToProcess.provider,
+                    checkpoint: resultToProcess.checkpoint,
+                });
             }
             
             const creationResult = await addCreation('generated', imageResult.name, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
@@ -795,5 +803,7 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
 
   return <Image src={imageUrl} alt={`Generated: ${name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />;
 };
+
+    
 
     
