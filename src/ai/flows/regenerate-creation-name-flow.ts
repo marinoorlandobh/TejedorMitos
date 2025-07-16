@@ -13,12 +13,12 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 
-export const RegenerateCreationNameInputSchema = z.object({
+const RegenerateCreationNameInputSchema = z.object({
   promptText: z.string().describe('The image generation prompt from which to extract a new name and entity.'),
 });
 export type RegenerateCreationNameInput = z.infer<typeof RegenerateCreationNameInputSchema>;
 
-export const RegenerateCreationNameOutputSchema = z.object({
+const RegenerateCreationNameOutputSchema = z.object({
   creationName: z.string().describe('A short, evocative name for the creation, suitable for a gallery title (e.g., "The Serpent of Ashes", "Cybernetic Griffin"). Should be 2-5 words.'),
   entity: z.string().describe('The primary subject, character, or theme of the prompt (e.g., "Phoenix", "Zeus", "World Tree"). Should be a single noun or a short phrase.'),
 });
