@@ -188,7 +188,7 @@ export default function BatchCreatePage() {
 
         const payload = {
             prompt: fullPrompt,
-            negative_prompt: "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, bad anatomy, watermark, signature, cut off, low contrast, underexposed, overexposed, bad art, beginner, amateur, distorted face, blurry, draft, grainy",
+            negative_prompt: "deformed, bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, disgusting, poorly drawn hands, missing limb, floating limbs, disconnected limbs, malformed hands, blurry, ((((mutated hands and fingers)))), watermark, watermarked, oversaturated, censorship, censored, sensible, text, bare breasts, nude",
             seed: -1,
             sampler_name: "DPM++ 2M Karras",
             batch_size: 1,
