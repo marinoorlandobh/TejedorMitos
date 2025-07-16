@@ -55,21 +55,45 @@ const extractDetailsPrompt = ai.definePrompt({
     `,
 });
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function createMythFromBatch(input: CreateMythFromBatchInput): Promise<CreateMythFromBatchOutput> {
     
     let name = `Creación en Lote`;
     let entity = 'Desconocido';
+    let extractionSuccess = false;
 
+    // First attempt to extract details
     try {
         const { output: extractedDetails } = await extractDetailsPrompt({ promptText: input.details });
         if (extractedDetails) {
             name = extractedDetails.creationName;
             entity = extractedDetails.entity;
+            extractionSuccess = true;
         }
     } catch (e) {
-        console.warn(`Could not extract details for prompt: "${input.details}". Using fallback names. Error: ${e}`);
-        // Use a generic name if extraction fails, but don't stop the process.
+        console.warn(`Initial detail extraction failed for prompt: "${input.details}". Error: ${e}`);
+    }
+
+    // If first attempt failed, wait 10 seconds and retry
+    if (!extractionSuccess) {
+        console.log(`Retrying detail extraction in 10 seconds for prompt: "${input.details}"`);
+        await delay(10000); // 10 second delay
+        try {
+            const { output: extractedDetails } = await extractDetailsPrompt({ promptText: input.details });
+            if (extractedDetails) {
+                name = extractedDetails.creationName;
+                entity = extractedDetails.entity;
+                extractionSuccess = true;
+                console.log(`Retry successful for prompt: "${input.details}"`);
+            }
+        } catch (e) {
+            console.error(`Retry for detail extraction also failed for prompt: "${input.details}". Using fallback names. Error: ${e}`);
+        }
+    }
+    
+    // If both attempts failed, use fallback names
+    if (!extractionSuccess) {
         // The first few words of the prompt can serve as a fallback entity.
         entity = input.details.split(' ').slice(0, 3).join(' ');
     }
