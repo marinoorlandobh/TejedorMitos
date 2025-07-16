@@ -25,35 +25,40 @@ const getInputDetails = (c: Creation): string => {
 
 const OutputDetails: React.FC<{ creation: Creation }> = ({ creation }) => {
     const { getTextOutput } = useHistory();
-    const [outputDetails, setOutputDetails] = useState<string | null>('Cargando...');
+    const [outputDetails, setOutputDetails] = useState<{label: string, text: string} | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         let isActive = true;
         const fetchOutput = async () => {
             if (!creation.outputId) {
                 setOutputDetails(null);
+                setLoading(false);
                 return;
             }
             try {
                 const textOutput = await getTextOutput(creation.outputId);
                 if (isActive && textOutput) {
                     const data = textOutput.data;
-                    if ((data as GeneratedOutputData).prompt) setOutputDetails((data as GeneratedOutputData).prompt);
-                    else if ((data as ReimaginedOutputData).derivedPrompt) setOutputDetails((data as ReimaginedOutputData).derivedPrompt);
-                    else if ((data as AnalyzedOutputData).analysis) setOutputDetails((data as AnalyzedOutputData).analysis);
-                    else setOutputDetails(null);
+                    let result: {label: string, text: string} | null = null;
+                    if ((data as GeneratedOutputData).prompt) result = {label: "Prompt:", text: (data as GeneratedOutputData).prompt};
+                    else if ((data as ReimaginedOutputData).derivedPrompt) result = {label: "Prompt Derivado:", text: (data as ReimaginedOutputData).derivedPrompt};
+                    else if ((data as AnalyzedOutputData).analysis) result = {label: "Análisis:", text: (data as AnalyzedOutputData).analysis};
+                    setOutputDetails(result);
                 } else if (isActive) {
                     setOutputDetails(null);
                 }
             } catch (e) {
-                if (isActive) setOutputDetails('Error al cargar detalles.');
+                if (isActive) setOutputDetails({label: "Error", text: "Error al cargar detalles."});
+            } finally {
+                if (isActive) setLoading(false);
             }
         };
         fetchOutput();
         return () => { isActive = false; };
     }, [creation.id, creation.outputId, getTextOutput]);
 
-    if (outputDetails === 'Cargando...') {
+    if (loading) {
         return <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /><span>Cargando salida...</span></div>;
     }
     
@@ -61,8 +66,8 @@ const OutputDetails: React.FC<{ creation: Creation }> = ({ creation }) => {
 
     return (
         <div className="mt-2 space-y-1">
-            <h5 className="font-semibold text-xs text-primary/80">Salida de IA</h5>
-            <p className="text-xs text-muted-foreground bg-muted/30 p-2 rounded-md whitespace-pre-wrap">{outputDetails}</p>
+            <h5 className="font-semibold text-xs text-primary/80">{outputDetails.label}</h5>
+            <p className="text-xs text-muted-foreground bg-muted/30 p-2 rounded-md whitespace-pre-wrap">{outputDetails.text}</p>
         </div>
     );
 };
@@ -255,5 +260,7 @@ export default function EncyclopediaPage() {
         </ScrollArea>
     );
 }
+
+    
 
     
