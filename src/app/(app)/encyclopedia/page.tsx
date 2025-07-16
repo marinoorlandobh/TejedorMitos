@@ -3,14 +3,14 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useHistory } from '@/contexts/HistoryContext';
-import { Library, Search, Loader2, Info, BookOpen, FileText } from 'lucide-react';
+import { Library, Search, Loader2, Info, BookOpen, FileText, Image as ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { Creation, TextOutputModel, GeneratedParams, AnalyzedParams, ReimaginedParams, GeneratedOutputData, AnalyzedOutputData, ReimaginedOutputData } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import NextImage from 'next/image';
 
 // --- Helper Functions similar to data-view ---
 const getCulture = (c: Creation) => (c.params as any).culture || (c.params as any).mythologicalContext || (c.params as any).contextCulture || 'Sin Cultura';
@@ -41,9 +41,9 @@ const OutputDetails: React.FC<{ creation: Creation }> = ({ creation }) => {
                 if (isActive && textOutput) {
                     const data = textOutput.data;
                     let result: {label: string, text: string} | null = null;
-                    if ((data as GeneratedOutputData).prompt) result = {label: "Prompt:", text: (data as GeneratedOutputData).prompt};
+                    if ((data as GeneratedOutputData).prompt) result = {label: "Prompt Generado:", text: (data as GeneratedOutputData).prompt};
                     else if ((data as ReimaginedOutputData).derivedPrompt) result = {label: "Prompt Derivado:", text: (data as ReimaginedOutputData).derivedPrompt};
-                    else if ((data as AnalyzedOutputData).analysis) result = {label: "Análisis:", text: (data as AnalyzedOutputData).analysis};
+                    else if ((data as AnalyzedOutputData).analysis) result = {label: "Análisis Detallado:", text: (data as AnalyzedOutputData).analysis};
                     setOutputDetails(result);
                 } else if (isActive) {
                     setOutputDetails(null);
@@ -71,6 +71,41 @@ const OutputDetails: React.FC<{ creation: Creation }> = ({ creation }) => {
         </div>
     );
 };
+
+const EncyclopediaImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, name }) => {
+  const { getImageData } = useHistory();
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isActive = true;
+    const fetchImage = async () => {
+      setLoading(true);
+      const imgData = await getImageData(imageId);
+      if (isActive && imgData) {
+        setImageUrl(imgData.imageDataUri);
+      }
+      setLoading(false);
+    };
+    fetchImage();
+    return () => { isActive = false; };
+  }, [imageId, getImageData]);
+
+  if (loading) {
+    return <div className="w-24 h-24 flex items-center justify-center bg-muted rounded-md"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  }
+
+  if (!imageUrl) {
+    return <div className="w-24 h-24 flex flex-col items-center justify-center bg-muted/50 text-xs text-muted-foreground p-1 text-center rounded-md"><ImageIcon className="h-6 w-6 mb-1"/><span>No encontrada</span></div>;
+  }
+
+  return (
+    <div className="w-24 h-24 relative flex-shrink-0">
+        <NextImage src={imageUrl} alt={`Miniatura de: ${name}`} fill className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />
+    </div>
+  );
+};
+
 
 // --- Main Page Component ---
 export default function EncyclopediaPage() {
@@ -222,21 +257,26 @@ export default function EncyclopediaPage() {
                                                             <AccordionContent>
                                                                 <div className="space-y-4 pl-6 border-l ml-3">
                                                                     {creationList.map(creation => (
-                                                                        <div key={creation.id} className="pb-3 border-b last:border-b-0 border-dashed">
-                                                                            <h4 className="font-semibold text-md flex items-center gap-2">
-                                                                                <FileText className="h-4 w-4 text-accent"/>
-                                                                                {creation.name}
-                                                                            </h4>
-                                                                            
-                                                                            <div className="pl-6 space-y-2 mt-1">
-                                                                                {getInputDetails(creation) && (
-                                                                                    <div className="space-y-1">
-                                                                                        <h5 className="font-semibold text-xs text-primary/80">Detalles de Entrada</h5>
-                                                                                        <p className="text-sm text-muted-foreground">{getInputDetails(creation)}</p>
-                                                                                    </div>
-                                                                                )}
-                                                                                <OutputDetails creation={creation} />
+                                                                        <div key={creation.id} className="pb-3 border-b last:border-b-0 border-dashed flex items-start gap-4">
+                                                                            <div className="flex-grow">
+                                                                                <h4 className="font-semibold text-md flex items-center gap-2">
+                                                                                    <FileText className="h-4 w-4 text-accent"/>
+                                                                                    {creation.name}
+                                                                                </h4>
+                                                                                
+                                                                                <div className="pl-6 space-y-2 mt-1">
+                                                                                    {getInputDetails(creation) && (
+                                                                                        <div className="space-y-1">
+                                                                                            <h5 className="font-semibold text-xs text-primary/80">Detalles de Entrada:</h5>
+                                                                                            <p className="text-sm text-muted-foreground">{getInputDetails(creation)}</p>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    <OutputDetails creation={creation} />
+                                                                                </div>
                                                                             </div>
+                                                                            {creation.imageId && (
+                                                                                <EncyclopediaImageItem imageId={creation.imageId} name={creation.name} />
+                                                                            )}
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -260,7 +300,3 @@ export default function EncyclopediaPage() {
         </ScrollArea>
     );
 }
-
-    
-
-    
