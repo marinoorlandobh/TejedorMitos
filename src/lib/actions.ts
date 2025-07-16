@@ -10,6 +10,7 @@ import { extractBatchDetailsFromPrompts as extractBatchDetailsFromPromptsFlow, t
 import { fixImagePrompt as fixImagePromptFlow, type FixImagePromptInput, type FixImagePromptOutput } from "@/ai/flows/fix-image-prompt";
 import { translateText as translateTextFlow, type TranslateTextInput, type TranslateTextOutput } from "@/ai/flows/translate-text-flow";
 import { translateCreationDetails as translateCreationDetailsFlow, type TranslateCreationDetailsInput, type TranslateCreationDetailsOutput } from "@/ai/flows/translate-creation-details-flow";
+import { regenerateCreationName as regenerateCreationNameFlow, type RegenerateCreationNameInput, type RegenerateCreationNameOutput } from "@/ai/flows/regenerate-creation-name-flow";
 import type { GeneratedParams } from "./types";
 
 // Helper for exponential backoff
@@ -174,5 +175,18 @@ export async function translateCreationDetailsAction(input: TranslateCreationDet
       throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
     }
     throw new Error(error.message || "No se pudieron traducir los detalles de la creación.");
+  }
+}
+
+export async function regenerateCreationNameAction(input: RegenerateCreationNameInput): Promise<RegenerateCreationNameOutput> {
+  try {
+    const result = await regenerateCreationNameFlow(input);
+    return result;
+  } catch (error: any) {
+    console.error("Error in regenerateCreationNameAction:", error);
+    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
+      throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
+    }
+    throw new Error(error.message || "No se pudo regenerar el nombre de la creación.");
   }
 }

@@ -21,6 +21,7 @@ interface HistoryContextType {
   updateCreationName: (id: string, newName: string) => Promise<void>;
   updateCreationParams: (id: string, newParams: Creation['params']) => Promise<void>;
   updateCreationNameAndParams: (id: string, newName: string, newParams: Creation['params']) => Promise<void>;
+  updateCreationNameAndEntity: (id: string, newName: string, newEntity: string) => Promise<void>;
   updateCreationTranslatedStatus: (id: string, isTranslated: boolean) => Promise<void>;
   updateCreationImageAndOutput: (id: string, params: Creation['params'], newImageDataUri: string, newOutputData: GeneratedOutputData | ReimaginedOutputData) => Promise<Creation | undefined>;
   deleteCreation: (id: string) => Promise<void>;
@@ -227,6 +228,34 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e: any) {
       console.error("Failed to update creation name and params:", e);
       setError(e.message || "Failed to update name and params.");
+      setLoading(false);
+    }
+  };
+
+  const updateCreationNameAndEntity = async (id: string, newName: string, newEntity: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const creation = await db.creations.get(id);
+      if (creation) {
+        const newParams = { ...creation.params };
+        if ('entity' in newParams) {
+          (newParams as GeneratedParams).entity = newEntity;
+        } else if ('entityTheme' in newParams) {
+          (newParams as AnalyzedParams).entityTheme = newEntity;
+        } else if ('contextEntity' in newParams) {
+           (newParams as ReimaginedParams).contextEntity = newEntity;
+        }
+        await db.creations.update(id, {
+          name: newName,
+          params: newParams,
+          updatedAt: Date.now()
+        });
+      }
+      setLoading(false);
+    } catch (e: any) {
+      console.error("Failed to update creation name and entity:", e);
+      setError(e.message || "Failed to update name and entity.");
       setLoading(false);
     }
   };
@@ -473,7 +502,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   return (
-    <HistoryContext.Provider value={{ creations, addCreation, updateCreationName, updateCreationParams, updateCreationNameAndParams, updateCreationTranslatedStatus, updateCreationImageAndOutput, deleteCreation, getCreationById, getImageData, getTextOutput, exportData, importData, clearAllData, loading, error }}>
+    <HistoryContext.Provider value={{ creations, addCreation, updateCreationName, updateCreationParams, updateCreationNameAndParams, updateCreationNameAndEntity, updateCreationTranslatedStatus, updateCreationImageAndOutput, deleteCreation, getCreationById, getImageData, getTextOutput, exportData, importData, clearAllData, loading, error }}>
       {children}
     </HistoryContext.Provider>
   );

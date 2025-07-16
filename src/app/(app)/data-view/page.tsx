@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useHistory } from '@/contexts/HistoryContext';
-import { List, Search, Download, Loader2, Info, Edit3, Save, X, Languages } from 'lucide-react';
+import { List, Search, Download, Loader2, Info, Edit3, Save, X, Languages, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,7 +14,7 @@ import type { Creation, TextOutputModel, GeneratedParams, AnalyzedParams, Reimag
 import { Badge } from '@/components/ui/badge';
 import Papa from 'papaparse';
 import { Textarea } from '@/components/ui/textarea';
-import { translateTextAction, translateCreationDetailsAction } from '@/lib/actions';
+import { translateTextAction, translateCreationDetailsAction, regenerateCreationNameAction } from '@/lib/actions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -82,7 +82,7 @@ const OutputDetailsCell: React.FC<{ creation: Creation }> = ({ creation }) => {
 
 
 export default function DataViewPage() {
-    const { creations, updateCreationName, updateCreationParams, updateCreationTranslatedStatus, updateCreationNameAndParams, loading: historyLoading } = useHistory();
+    const { creations, updateCreationName, updateCreationParams, updateCreationTranslatedStatus, updateCreationNameAndParams, updateCreationNameAndEntity, loading: historyLoading } = useHistory();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     
@@ -90,6 +90,7 @@ export default function DataViewPage() {
     const [editingValue, setEditingValue] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isTranslating, setIsTranslating] = useState(false);
+    const [isRegeneratingName, setIsRegeneratingName] = useState(false);
     const [translatingId, setTranslatingId] = useState<string | null>(null);
     const [translationFilter, setTranslationFilter] = useState<'all' | 'translated' | 'untranslated'>('all');
 
@@ -232,6 +233,33 @@ export default function DataViewPage() {
         }
     };
 
+    const handleRegenerateName = async () => {
+        if (!editingCell || editingCell.field !== 'name') return;
+        
+        const creation = creations.find(c => c.id === editingCell.id);
+        if (!creation) return;
+
+        const promptText = getInputDetails(creation);
+        if (!promptText) {
+            toast({ variant: "destructive", title: "Sin Prompt", description: "No hay prompt de entrada para regenerar el nombre." });
+            return;
+        }
+
+        setIsRegeneratingName(true);
+        toast({ title: "Regenerando nombre...", description: "La IA está creando un nuevo nombre para esta creación." });
+
+        try {
+            const result = await regenerateCreationNameAction({ promptText });
+            await updateCreationNameAndEntity(creation.id, result.creationName, result.entity);
+            setEditingValue(result.creationName); // Update the input field with the new name
+            toast({ title: "¡Nombre Regenerado!", description: "Se ha actualizado el nombre y la entidad de la creación." });
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "Error de Regeneración", description: e.message });
+        } finally {
+            setIsRegeneratingName(false);
+        }
+    };
+
 
     if (historyLoading && creations.length === 0) {
         return (
@@ -331,7 +359,8 @@ export default function DataViewPage() {
                                                             <div className="flex items-center gap-1">
                                                                 <Button size="icon" className="h-6 w-6" onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? <Loader2 className="animate-spin h-3 w-3" /> : <Save className="h-3 w-3" />}</Button>
                                                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCancelEdit}><X className="h-3 w-3" /></Button>
-                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslateInPlace} disabled={isTranslating}>{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
+                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslateInPlace} disabled={isTranslating} title="Traducir nombre">{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
+                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleRegenerateName} disabled={isRegeneratingName} title="Regenerar nombre con IA">{isRegeneratingName ? <Loader2 className="animate-spin h-3 w-3" /> : <Sparkles className="h-3 w-3" />}</Button>
                                                             </div>
                                                         </div>
                                                     ) : (
@@ -358,7 +387,7 @@ export default function DataViewPage() {
                                                             <div className="flex items-center gap-1">
                                                                 <Button size="icon" className="h-6 w-6" onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? <Loader2 className="animate-spin h-3 w-3" /> : <Save className="h-3 w-3" />}</Button>
                                                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCancelEdit}><X className="h-3 w-3" /></Button>
-                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslateInPlace} disabled={isTranslating}>{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
+                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTranslateInPlace} disabled={isTranslating} title="Traducir detalles">{isTranslating ? <Loader2 className="animate-spin h-3 w-3" /> : <Languages className="h-3 w-3" />}</Button>
                                                             </div>
                                                             <div className="mt-2 border-t pt-2">
                                                                 <OutputDetailsCell creation={creation} />
