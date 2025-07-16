@@ -84,7 +84,7 @@ async function generateWithGoogleAI(prompt: string) {
 
     if (!media?.url) {
       throw new Error(
-        "La generación de imagen falló, probablemente por infringir las políticas de seguridad del modelo. Esto puede ocurrir con escenas de batalla o desnudos artísticos. Intenta usar la opción 'Corregir con IA' para reescribir el prompt o modifícalo manualmente para que sea más descriptivo y menos explícito."
+        "La generación de imagen falló, probablemente por infringir las políticas de seguridad del modelo. Esto puede ocurrir con escenas de batalla o desnudos artísticos. Intenta usar la opción 'Corregir con IA' para reescribir el prompt o modifícalo manually para que sea más descriptivo y menos explícito."
       );
     }
     return media.url;
@@ -93,7 +93,6 @@ async function generateWithGoogleAI(prompt: string) {
 export async function createMythFromBatch(input: CreateMythFromBatchInput): Promise<CreateMythFromBatchOutput> {
     
     // First, construct the full prompt that will be used for both name extraction and image generation.
-    // The entity here is intentionally generic at first, as the extraction will define it.
     const fullPrompt = `A visually rich image in the style of ${input.style}. The primary subject is from ${input.culture} mythology. Key scene details include: ${input.details}. The desired image quality is ${input.imageQuality}.`;
 
     let name = `Creación en Lote`;
