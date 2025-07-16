@@ -74,12 +74,11 @@ export default function BatchCreatePage() {
     },
   });
   
-  const promptsValue = form.watch('prompts');
-  const selectedProvider = form.watch('provider');
+  const formValues = form.watch();
 
   useEffect(() => {
       const fetchSdCheckpoint = async () => {
-        if (selectedProvider === 'stable-diffusion') {
+        if (formValues.provider === 'stable-diffusion') {
             try {
                 const response = await fetch('http://127.0.0.1:7860/sdapi/v1/options', {
                     method: 'GET',
@@ -99,28 +98,26 @@ export default function BatchCreatePage() {
         }
     };
     fetchSdCheckpoint();
-  }, [selectedProvider, form, toast]);
+  }, [formValues.provider, form, toast]);
 
   useEffect(() => {
     const cachedData = localStorage.getItem('mythWeaverBatchCreateCache');
     if (cachedData) {
         try {
-            const { results: parsedResults, prompts: cachedPrompts } = JSON.parse(cachedData);
+            const { results: parsedResults, formState: cachedFormState } = JSON.parse(cachedData);
             if (Array.isArray(parsedResults)) {
-                // If any items were 'processing' when the page was left, reset them to 'pending'
-                // so they can be retried without appearing to be 'stuck'.
                 const correctedResults = parsedResults.map((r: ResultState) => 
                     r.status === 'processing' 
                         ? { ...r, status: 'pending' } 
                         : r
                 );
                 setResults(correctedResults);
-                 if (correctedResults.some((r: ResultState) => r.status !== 'success')) {
-                    setIsProcessingBatch(true); // Keep batch "active" if there are pending/error items
+                 if (correctedResults.some((r: ResultState) => r.status !== 'success' && r.status !== 'pending')) {
+                    setIsProcessingBatch(true);
                 }
             }
-            if (cachedPrompts && typeof cachedPrompts === 'string') {
-                form.setValue('prompts', cachedPrompts);
+            if (cachedFormState) {
+                form.reset(cachedFormState);
             }
         } catch (e) {
             console.error("Error loading batch create cache:", e);
@@ -135,14 +132,14 @@ export default function BatchCreatePage() {
     if (results.length > 0) {
         const cache = {
             results,
-            prompts: promptsValue
+            formState: formValues
         };
         try {
             localStorage.setItem('mythWeaverBatchCreateCache', JSON.stringify(cache));
         } catch (e) {
             if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
                 const resultsToCache = results.map(({ imageId, ...rest }) => rest);
-                const minimalCache = { results: resultsToCache, prompts: promptsValue };
+                const minimalCache = { results: resultsToCache, formState: formValues };
                 try {
                     localStorage.setItem('mythWeaverBatchCreateCache', JSON.stringify(minimalCache));
                 } catch (nestedError) {
@@ -159,9 +156,9 @@ export default function BatchCreatePage() {
         }
     } else {
         localStorage.removeItem('mythWeaverBatchCreateCache');
-        setIsProcessingBatch(false); // Make sure to re-enable form
+        setIsProcessingBatch(false);
     }
-  }, [results, promptsValue, toast]);
+  }, [results, formValues, toast]);
 
 
   const getProcessedPromptLines = (rawPrompts: string): string[] => {
@@ -624,7 +621,7 @@ export default function BatchCreatePage() {
                         </FormItem>
                       )}
                     />
-                    {selectedProvider === 'stable-diffusion' && (
+                    {formValues.provider === 'stable-diffusion' && (
                         <FormField
                             control={form.control}
                             name="checkpoint"
@@ -798,3 +795,5 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
 
   return <Image src={imageUrl} alt={`Generated: ${name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />;
 };
+
+    
