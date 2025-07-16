@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as FormDescriptionComponent } from '@/components/ui/form';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useToast } from '@/hooks/use-toast';
-import { createMythFromBatchAction, fixImagePromptAction, regenerateCreationNameAction } from '@/lib/actions';
+import { generateMythImageAction, fixImagePromptAction, regenerateCreationNameAction } from '@/lib/actions';
 import type { GeneratedParams } from '@/lib/types';
 import { MYTHOLOGICAL_CULTURES, IMAGE_STYLES, ASPECT_RATIOS, IMAGE_QUALITIES, IMAGE_PROVIDERS } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -240,10 +240,23 @@ export default function BatchCreatePage() {
         await new Promise(resolve => setTimeout(resolve, 0));
         
         const settings = form.getValues();
+        let creationName = `Creación en Lote #${index + 1}`;
+        let entity = 'Desconocido';
+
+        try {
+            // Step 1: Extract Name and Entity
+            const fullPromptForNaming = `A visually rich image in the style of ${settings.style}. The primary subject is from ${resultToProcess.culture} mythology. Key scene details include: ${resultToProcess.prompt}. The desired image quality is ${settings.imageQuality}.`;
+            const nameResult = await regenerateCreationNameAction({ promptText: fullPromptForNaming });
+            creationName = nameResult.creationName;
+            entity = nameResult.entity;
+        } catch (e) {
+            console.warn(`Name extraction failed for prompt #${index}. Using generic names.`, e);
+            // Fallback to generic names, continue with image generation
+        }
 
         const aiInputParams: GeneratedParams = {
             culture: resultToProcess.culture,
-            entity: '', // This is determined by the flow now
+            entity: entity,
             details: resultToProcess.prompt,
             style: settings.style,
             aspectRatio: settings.aspectRatio,
@@ -253,35 +266,23 @@ export default function BatchCreatePage() {
         };
 
         try {
+            // Step 2: Generate Image
             let imageResult;
             if (resultToProcess.provider === 'stable-diffusion') {
-                 const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity 'A mythological entity' from ${aiInputParams.culture} mythology. Key scene details include: ${resultToProcess.prompt}. The desired image quality is ${aiInputParams.imageQuality}.`;
+                 const fullPrompt = `A visually rich image in the style of ${aiInputParams.style}. The primary subject is the entity '${entity}' from ${aiInputParams.culture} mythology. Key scene details include: ${resultToProcess.prompt}. The desired image quality is ${aiInputParams.imageQuality}.`;
                 const imageUrl = await generateWithStableDiffusion(fullPrompt, aiInputParams.aspectRatio, aiInputParams.imageQuality, aiInputParams.checkpoint);
-                imageResult = {
-                    imageUrl: imageUrl,
-                    prompt: fullPrompt,
-                    name: `Creación SD #${index + 1}`, // SD doesn't extract names
-                    entity: 'Desconocido'
-                };
+                imageResult = { imageUrl, prompt: fullPrompt };
             } else {
-                imageResult = await createMythFromBatchAction({
-                    culture: resultToProcess.culture,
-                    details: resultToProcess.prompt,
-                    style: settings.style,
-                    aspectRatio: settings.aspectRatio,
-                    imageQuality: settings.imageQuality,
-                    provider: resultToProcess.provider,
-                    checkpoint: resultToProcess.checkpoint,
-                });
+                imageResult = await generateMythImageAction(aiInputParams);
             }
             
-            const creationResult = await addCreation('generated', imageResult.name, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
+            const creationResult = await addCreation('generated', creationName, aiInputParams, { prompt: imageResult.prompt }, imageResult.imageUrl);
             
             if (!creationResult) {
                 throw new Error("Error al guardar la creación en la base de datos.");
             }
             
-            setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageId: creationResult.imageId, name: imageResult.name, entity: imageResult.entity } : r));
+            setResults(prev => prev.map((r, idx) => idx === index ? { ...r, status: 'success', imageId: creationResult.imageId, name: creationName, entity: entity } : r));
             return true;
         } catch (error: any) {
             console.error(`Error processing prompt: ${resultToProcess.prompt}`, error);
@@ -803,7 +804,3 @@ const BatchImageItem: React.FC<{ imageId: string, name: string }> = ({ imageId, 
 
   return <Image src={imageUrl} alt={`Generated: ${name}`} width={64} height={64} className="rounded-md object-cover shadow-md" data-ai-hint="mythological art" />;
 };
-
-    
-
-    
