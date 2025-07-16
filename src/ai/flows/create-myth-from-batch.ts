@@ -11,17 +11,15 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import { generateMythImage } from './generate-myth-image';
 
-// Input is the same as GenerateMythImageInput, as the client provides all parameters
+// Input is similar to GenerateMythImageInput, but 'entity' is derived inside the flow.
 const CreateMythFromBatchInputSchema = z.object({
   culture: z.string(),
-  entity: z.string(), // Will be empty, derived inside the flow
   details: z.string(),
   style: z.string(),
   aspectRatio: z.string(),
   imageQuality: z.string(),
-  provider: z.string(), // google-ai or stable-diffusion
+  provider: z.string(), // 'google-ai' or 'stable-diffusion'
   checkpoint: z.string().optional(),
 });
 export type CreateMythFromBatchInput = z.infer<typeof CreateMythFromBatchInputSchema>;
@@ -56,6 +54,41 @@ const extractDetailsPrompt = ai.definePrompt({
 });
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function generateWithGoogleAI(prompt: string) {
+    const {media} = await ai.generate({
+      model: 'googleai/gemini-2.0-flash-preview-image-generation',
+      prompt: prompt,
+      config: {
+        responseModalities: ['TEXT', 'IMAGE'],
+        safetySettings: [
+          {
+            category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+          {
+            category: 'HARM_CATEGORY_HARASSMENT',
+            threshold: 'BLOCK_ONLY_HIGH',
+          },
+          {
+            category: 'HARM_CATEGORY_HATE_SPEECH',
+            threshold: 'BLOCK_ONLY_HIGH',
+          },
+          {
+            category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+        ],
+      },
+    });
+
+    if (!media?.url) {
+      throw new Error(
+        "La generación de imagen falló, probablemente por infringir las políticas de seguridad del modelo. Esto puede ocurrir con escenas de batalla o desnudos artísticos. Intenta usar la opción 'Corregir con IA' para reescribir el prompt o modifícalo manualmente para que sea más descriptivo y menos explícito."
+      );
+    }
+    return media.url;
+}
 
 export async function createMythFromBatch(input: CreateMythFromBatchInput): Promise<CreateMythFromBatchOutput> {
     
@@ -99,12 +132,14 @@ export async function createMythFromBatch(input: CreateMythFromBatchInput): Prom
     }
     
     // Now, generate the image using the extracted/fallback entity.
-    const imageGenerationInput = { ...input, entity: entity };
-    const { imageUrl, prompt: finalPrompt } = await generateMythImage(imageGenerationInput);
+    const fullPrompt = `A visually rich image in the style of ${input.style}. The primary subject is the entity '${entity}' from ${input.culture} mythology. Key scene details include: ${input.details}. The desired image quality is ${input.imageQuality}.`;
+    
+    // This server flow now only handles Google AI for the batch process. SD is handled client-side and doesn't use this flow.
+    const imageUrl = await generateWithGoogleAI(fullPrompt);
 
     return {
         imageUrl,
-        prompt: finalPrompt,
+        prompt: fullPrompt,
         name,
         entity,
     };
