@@ -14,18 +14,17 @@ import type { GeneratedParams } from "./types";
 // Helper for exponential backoff
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+const handleActionError = (error: any, defaultMessage: string) => {
+    console.error(`Error in action:`, error);
+    throw new Error(error.message || defaultMessage);
+};
+
 export async function generateMythImageAction(input: GeneratedParams): Promise<GenerateMythImageOutput> {
   try {
-    // This action now only calls the Google AI flow. Stable Diffusion is handled client-side.
     const result = await generateMythImageFlow(input);
     return result;
   } catch (error: any) {
-    console.error("Error in generateMythImageAction (Google AI):", error);
-    // This error is specific to Google AI, so the quota message is appropriate here.
-    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-        throw new Error("Has excedido tu cuota de generación de imágenes con Google AI. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
-    }
-    throw new Error(error.message || "Failed to generate image with Google AI. Please try again.");
+    handleActionError(error, "Failed to generate image with Google AI.");
   }
 }
 
@@ -34,26 +33,16 @@ export async function analyzeUploadedImageAction(input: AnalyzeUploadedImageInpu
     const result = await analyzeUploadedImageFlow(input);
     return result;
   } catch (error: any) {
-    console.error("Error in analyzeUploadedImageAction:", error);
-    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-        throw new Error("Has excedido tu cuota de análisis de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
-    }
-    throw new Error(error.message || "Failed to analyze image. Please try again.");
+    handleActionError(error, "Failed to analyze image.");
   }
 }
 
 export async function reimagineUploadedImageAction(input: ReimagineUploadedImageInput): Promise<ReimagineUploadedImageOutput> {
   try {
-     // This action now only calls the Google AI flow. Stable Diffusion is handled client-side.
     const result = await reimagineUploadedImageFlow(input);
     return result;
   } catch (error: any) {
-    console.error("Error in reimagineUploadedImageAction (Google AI):", error);
-     // This error is specific to Google AI, so the quota message is appropriate here.
-    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-        throw new Error("Has excedido tu cuota de generación de imágenes con Google AI. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
-    }
-    throw new Error(error.message || "Failed to reimagine image with Google AI. Please try again.");
+    handleActionError(error, "Failed to reimagine image with Google AI.");
   }
 }
 
@@ -74,11 +63,7 @@ export async function extractMythologiesAction(input: ExtractMythologiesInput): 
         console.log(`Quota error in extractMythologiesAction. Retrying in ${waitTime / 1000}s... (Attempt ${retries}/${maxRetries})`);
         await delay(waitTime);
       } else {
-        console.error("Failed to extract mythologies from text:", error);
-        if (isQuotaError) {
-            throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
-        }
-        throw new Error(error.message || "No se pudieron extraer las mitologías del texto.");
+        handleActionError(error, "No se pudieron extraer las mitologías del texto.");
       }
     }
   }
@@ -91,12 +76,7 @@ export async function fixImagePromptAction(input: FixImagePromptInput): Promise<
     const result = await fixImagePromptFlow(input);
     return result;
   } catch (error: any) {
-    console.error("Error in fixImagePromptAction:", error);
-     if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-        throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
-    }
-    // Propagate the specific error message from the flow
-    throw new Error(error.message || "Failed to fix prompt with AI. Please try again.");
+    handleActionError(error, "Failed to fix prompt with AI.");
   }
 }
 
@@ -105,25 +85,16 @@ export async function translateTextAction(input: TranslateTextInput): Promise<Tr
     const result = await translateTextFlow(input);
     return result;
   } catch (error: any) {
-    console.error("Error in translateTextAction:", error);
-    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-      throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
-    }
-    throw new Error(error.message || "No se pudo traducir el texto. Por favor, inténtalo de nuevo.");
+    handleActionError(error, "No se pudo traducir el texto.");
   }
 }
-
 
 export async function translateCreationDetailsAction(input: TranslateCreationDetailsInput): Promise<TranslateCreationDetailsOutput> {
   try {
     const result = await translateCreationDetailsFlow(input);
     return result;
   } catch (error: any) {
-    console.error("Error in translateCreationDetailsAction:", error);
-    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-      throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
-    }
-    throw new Error(error.message || "No se pudieron traducir los detalles de la creación.");
+    handleActionError(error, "No se pudieron traducir los detalles de la creación.");
   }
 }
 
@@ -132,10 +103,6 @@ export async function regenerateCreationNameAction(input: RegenerateCreationName
     const result = await regenerateCreationNameFlow(input);
     return result;
   } catch (error: any) {
-    console.error("Error in regenerateCreationNameAction:", error);
-    if (error.message && (error.message.includes('429') || error.message.toLowerCase().includes('quota'))) {
-      throw new Error("Has excedido tu cuota de API. Por favor, inténtalo de nuevo más tarde o revisa tu plan.");
-    }
-    throw new Error(error.message || "No se pudo regenerar el nombre de la creación.");
+    handleActionError(error, "No se pudo regenerar el nombre de la creación.");
   }
 }
