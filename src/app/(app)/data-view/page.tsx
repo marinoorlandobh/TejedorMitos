@@ -310,6 +310,7 @@ export default function DataViewPage() {
 
         let successCount = 0;
         let failCount = 0;
+        let lastError = '';
 
         for (const creation of creationsToUpdate) {
             try {
@@ -317,9 +318,10 @@ export default function DataViewPage() {
                 const result = await regenerateCreationNameAction({ promptText });
                 await updateCreationNameAndEntity(creation.id, result.creationName, result.entity);
                 successCount++;
-            } catch (e) {
+            } catch (e: any) {
                 console.error(`Error regenerating name for ${creation.name} (ID: ${creation.id}):`, e);
                 failCount++;
+                lastError = e.message;
             }
         }
         
@@ -327,6 +329,14 @@ export default function DataViewPage() {
             title: "Regeneración en Lote Completa",
             description: `Exitosos: ${successCount}, Fallidos: ${failCount}.`
         });
+        
+        if (failCount > 0) {
+            toast({
+                variant: "destructive",
+                title: `Fallaron ${failCount} regeneraciones`,
+                description: `Último error: ${lastError}`,
+            });
+        }
         
         setSelectedIds(new Set()); // Clear selection after processing
         setIsBatchRegenerating(false);
@@ -344,6 +354,7 @@ export default function DataViewPage() {
 
         let successCount = 0;
         let failCount = 0;
+        let lastError = '';
 
         for (const creation of creationsToUpdate) {
             try {
@@ -361,9 +372,10 @@ export default function DataViewPage() {
                 await updateCreationNameAndParams(creation.id, result.translatedName, newParams);
                 await updateCreationTranslatedStatus(creation.id, true);
                 successCount++;
-            } catch (e) {
+            } catch (e: any) {
                 console.error(`Error translating details for ${creation.name} (ID: ${creation.id}):`, e);
                 failCount++;
+                lastError = e.message;
             }
         }
         
@@ -371,6 +383,14 @@ export default function DataViewPage() {
             title: "Traducción en Lote Completa",
             description: `Exitosos: ${successCount}, Fallidos: ${failCount}.`
         });
+        
+        if (failCount > 0) {
+            toast({
+                variant: "destructive",
+                title: `Fallaron ${failCount} traducciones`,
+                description: `Último error: ${lastError}`,
+            });
+        }
 
         setSelectedIds(new Set());
         setIsBatchTranslating(false);
@@ -601,5 +621,3 @@ export default function DataViewPage() {
         </ScrollArea>
     );
 }
-
-    
