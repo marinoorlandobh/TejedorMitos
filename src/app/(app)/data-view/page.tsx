@@ -324,7 +324,7 @@ export default function DataViewPage() {
             
             let attempt = 0;
             let done = false;
-            while(attempt < 2 && !done && !signal.aborted) {
+            while(attempt < 3 && !done && !signal.aborted) {
                 try {
                     const promptText = getInputDetails(creation);
                     const result = await regenerateCreationNameAction({ promptText });
@@ -333,9 +333,10 @@ export default function DataViewPage() {
                     done = true;
                 } catch (e: any) {
                     const isQuotaError = e.message && (e.message.includes('429') || e.message.toLowerCase().includes('quota'));
-                    if (isQuotaError && attempt === 0) {
-                        toast({ title: "Error de cuota detectado", description: "Reintentando en 10 segundos..." });
-                        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second delay
+                    if (isQuotaError && attempt < 2) {
+                        const waitTime = attempt === 0 ? 10000 : 30000; // 10s, then 30s
+                        toast({ title: "Error de cuota detectado", description: `Reintentando en ${waitTime / 1000} segundos...` });
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
                         attempt++;
                     } else {
                         console.error(`Error regenerating name for ${creation.name} (ID: ${creation.id}):`, e);
@@ -390,7 +391,7 @@ export default function DataViewPage() {
 
             let attempt = 0;
             let done = false;
-            while(attempt < 2 && !done && !signal.aborted) {
+            while(attempt < 3 && !done && !signal.aborted) {
                 try {
                     const details = getInputDetails(creation);
                     const result = await translateCreationDetailsAction({
@@ -409,9 +410,10 @@ export default function DataViewPage() {
                     done = true;
                 } catch (e: any) {
                     const isQuotaError = e.message && (e.message.includes('429') || e.message.toLowerCase().includes('quota'));
-                     if (isQuotaError && attempt === 0) {
-                        toast({ title: "Error de cuota detectado", description: "Reintentando en 10 segundos..." });
-                        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second delay
+                     if (isQuotaError && attempt < 2) {
+                        const waitTime = attempt === 0 ? 10000 : 30000; // 10s, then 30s
+                        toast({ title: "Error de cuota detectado", description: `Reintentando en ${waitTime / 1000} segundos...` });
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
                         attempt++;
                     } else {
                         console.error(`Error translating details for ${creation.name} (ID: ${creation.id}):`, e);
