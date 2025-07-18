@@ -321,15 +321,29 @@ export default function DataViewPage() {
                 toast({ title: "Proceso Detenido", description: "La regeneración en lote fue detenida por el usuario." });
                 break;
             }
-            try {
-                const promptText = getInputDetails(creation);
-                const result = await regenerateCreationNameAction({ promptText });
-                await updateCreationNameAndEntity(creation.id, result.creationName, result.entity);
-                successCount++;
-            } catch (e: any) {
-                console.error(`Error regenerating name for ${creation.name} (ID: ${creation.id}):`, e);
-                failCount++;
-                lastError = e.message;
+            
+            let attempt = 0;
+            let done = false;
+            while(attempt < 2 && !done && !signal.aborted) {
+                try {
+                    const promptText = getInputDetails(creation);
+                    const result = await regenerateCreationNameAction({ promptText });
+                    await updateCreationNameAndEntity(creation.id, result.creationName, result.entity);
+                    successCount++;
+                    done = true;
+                } catch (e: any) {
+                    const isQuotaError = e.message && (e.message.includes('429') || e.message.toLowerCase().includes('quota'));
+                    if (isQuotaError && attempt === 0) {
+                        toast({ title: "Error de cuota detectado", description: "Reintentando en 10 segundos..." });
+                        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second delay
+                        attempt++;
+                    } else {
+                        console.error(`Error regenerating name for ${creation.name} (ID: ${creation.id}):`, e);
+                        failCount++;
+                        lastError = e.message;
+                        done = true; // Stop trying for this item
+                    }
+                }
             }
         }
         
@@ -373,25 +387,39 @@ export default function DataViewPage() {
                 toast({ title: "Proceso Detenido", description: "La traducción en lote fue detenida por el usuario." });
                 break;
             }
-            try {
-                const details = getInputDetails(creation);
-                const result = await translateCreationDetailsAction({
-                    name: creation.name,
-                    details: details,
-                });
 
-                const newParams = { ...creation.params };
-                if (creation.type === 'generated') (newParams as GeneratedParams).details = result.translatedDetails;
-                if (creation.type === 'reimagined') (newParams as ReimaginedParams).contextDetails = result.translatedDetails;
-                if (creation.type === 'analyzed') (newParams as AnalyzedParams).additionalDetails = result.translatedDetails;
-                
-                await updateCreationNameAndParams(creation.id, result.translatedName, newParams);
-                await updateCreationTranslatedStatus(creation.id, true);
-                successCount++;
-            } catch (e: any) {
-                console.error(`Error translating details for ${creation.name} (ID: ${creation.id}):`, e);
-                failCount++;
-                lastError = e.message;
+            let attempt = 0;
+            let done = false;
+            while(attempt < 2 && !done && !signal.aborted) {
+                try {
+                    const details = getInputDetails(creation);
+                    const result = await translateCreationDetailsAction({
+                        name: creation.name,
+                        details: details,
+                    });
+
+                    const newParams = { ...creation.params };
+                    if (creation.type === 'generated') (newParams as GeneratedParams).details = result.translatedDetails;
+                    if (creation.type === 'reimagined') (newParams as ReimaginedParams).contextDetails = result.translatedDetails;
+                    if (creation.type === 'analyzed') (newParams as AnalyzedParams).additionalDetails = result.translatedDetails;
+                    
+                    await updateCreationNameAndParams(creation.id, result.translatedName, newParams);
+                    await updateCreationTranslatedStatus(creation.id, true);
+                    successCount++;
+                    done = true;
+                } catch (e: any) {
+                    const isQuotaError = e.message && (e.message.includes('429') || e.message.toLowerCase().includes('quota'));
+                     if (isQuotaError && attempt === 0) {
+                        toast({ title: "Error de cuota detectado", description: "Reintentando en 10 segundos..." });
+                        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second delay
+                        attempt++;
+                    } else {
+                        console.error(`Error translating details for ${creation.name} (ID: ${creation.id}):`, e);
+                        failCount++;
+                        lastError = e.message;
+                        done = true; // Stop trying for this item
+                    }
+                }
             }
         }
         
