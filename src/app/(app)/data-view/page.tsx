@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useHistory } from '@/contexts/HistoryContext';
-import { List, Search, Download, Loader2, Info, Edit3, Save, X, Languages, Sparkles } from 'lucide-react';
+import { List, Search, Download, Loader2, Info, Edit3, Save, X, Languages, Sparkles, Bot } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -18,6 +18,7 @@ import { translateTextAction, translateCreationDetailsAction, regenerateCreation
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const getCulture = (c: Creation) => (c.params as any).culture || (c.params as any).mythologicalContext || (c.params as any).contextCulture || 'N/A';
 const getEntity = (c: Creation) => (c.params as any).entity || (c.params as any).entityTheme || (c.params as any).contextEntity || 'N/A';
@@ -93,6 +94,9 @@ export default function DataViewPage() {
     const [isRegeneratingName, setIsRegeneratingName] = useState(false);
     const [translatingId, setTranslatingId] = useState<string | null>(null);
     const [translationFilter, setTranslationFilter] = useState<'all' | 'translated' | 'untranslated'>('all');
+    const [selectedIds, setSelectedIds] = useState(new Set<string>());
+    const [isBatchRegenerating, setIsBatchRegenerating] = useState(false);
+
 
     const filteredCreations = useMemo(() => {
         const creationsAfterTranslationFilter = creations.filter(c => {
@@ -111,6 +115,39 @@ export default function DataViewPage() {
             getEntity(c).toLowerCase().includes(lowercasedFilter)
         );
     }, [searchTerm, creations, translationFilter]);
+
+    useEffect(() => {
+        const newSelected = new Set(selectedIds);
+        let changed = false;
+        const visibleIds = new Set(filteredCreations.map(c => c.id));
+        for (const id of newSelected) {
+            if (!visibleIds.has(id)) {
+                newSelected.delete(id);
+                changed = true;
+            }
+        }
+        if (changed) {
+            setSelectedIds(newSelected);
+        }
+    }, [filteredCreations, selectedIds]);
+
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedIds(new Set(filteredCreations.map(c => c.id)));
+        } else {
+            setSelectedIds(new Set());
+        }
+    };
+
+    const handleSelectRow = (id: string, checked: boolean) => {
+        const newSelected = new Set(selectedIds);
+        if (checked) {
+            newSelected.add(id);
+        } else {
+            newSelected.delete(id);
+        }
+        setSelectedIds(newSelected);
+    };
     
     const handleExportToCsv = async () => {
         if (filteredCreations.length === 0) {
@@ -259,6 +296,40 @@ export default function DataViewPage() {
             setIsRegeneratingName(false);
         }
     };
+    
+    const handleBatchRegenerateNames = async () => {
+        if (selectedIds.size === 0) return;
+        
+        setIsBatchRegenerating(true);
+        toast({ title: `Iniciando regeneración para ${selectedIds.size} elementos.`, description: "Esto puede tardar un poco." });
+        
+        const creationsToUpdate = Array.from(selectedIds)
+            .map(id => creations.find(c => c.id === id))
+            .filter((c): c is Creation => !!c && !!getInputDetails(c));
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const creation of creationsToUpdate) {
+            try {
+                const promptText = getInputDetails(creation);
+                const result = await regenerateCreationNameAction({ promptText });
+                await updateCreationNameAndEntity(creation.id, result.creationName, result.entity);
+                successCount++;
+            } catch (e) {
+                console.error(`Error regenerating name for ${creation.name} (ID: ${creation.id}):`, e);
+                failCount++;
+            }
+        }
+        
+        toast({
+            title: "Regeneración en Lote Completa",
+            description: `Exitosos: ${successCount}, Fallidos: ${failCount}.`
+        });
+        
+        setSelectedIds(new Set()); // Clear selection after processing
+        setIsBatchRegenerating(false);
+    };
 
 
     if (historyLoading && creations.length === 0) {
@@ -320,6 +391,11 @@ export default function DataViewPage() {
                                         />
                                     </div>
                                 </div>
+                                <div className="flex w-full sm:w-auto gap-2 flex-wrap">
+                                <Button onClick={handleBatchRegenerateNames} disabled={selectedIds.size === 0 || isBatchRegenerating} className="w-full sm:w-auto">
+                                    {isBatchRegenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                                    Regenerar Nombres ({selectedIds.size})
+                                </Button>
                                 <Select value={translationFilter} onValueChange={(value: 'all' | 'translated' | 'untranslated') => setTranslationFilter(value)}>
                                     <SelectTrigger className="w-full sm:w-[200px]">
                                         <SelectValue placeholder="Filtrar por traducción" />
@@ -334,6 +410,7 @@ export default function DataViewPage() {
                                     <Download className="mr-2 h-4 w-4"/>
                                     Copiar Tabla como CSV
                                 </Button>
+                                </div>
                             </div>
                         </CardHeader>
                         <CardContent>
@@ -341,6 +418,13 @@ export default function DataViewPage() {
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-background z-10">
                                         <TableRow>
+                                            <TableHead className="w-[5%]">
+                                                <Checkbox
+                                                    checked={selectedIds.size > 0 && selectedIds.size === filteredCreations.length}
+                                                    onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                                                    aria-label="Seleccionar todo"
+                                                />
+                                            </TableHead>
                                             <TableHead className="w-[15%]">Nombre</TableHead>
                                             <TableHead className="w-[10%]">Tipo</TableHead>
                                             <TableHead className="w-[10%]">Cultura/Contexto</TableHead>
@@ -351,7 +435,18 @@ export default function DataViewPage() {
                                     </TableHeader>
                                     <TableBody>
                                         {filteredCreations.map(creation => (
-                                            <TableRow key={creation.id} className={cn(translatingId === creation.id && "opacity-50 pointer-events-none")}>
+                                            <TableRow 
+                                                key={creation.id} 
+                                                data-state={selectedIds.has(creation.id) ? "selected" : ""}
+                                                className={cn(translatingId === creation.id && "opacity-50 pointer-events-none")}
+                                            >
+                                                <TableCell>
+                                                    <Checkbox
+                                                        checked={selectedIds.has(creation.id)}
+                                                        onCheckedChange={(checked) => handleSelectRow(creation.id, checked as boolean)}
+                                                        aria-label={`Seleccionar ${creation.name}`}
+                                                    />
+                                                </TableCell>
                                                 <TableCell className="font-medium align-top group relative">
                                                     {editingCell?.id === creation.id && editingCell.field === 'name' ? (
                                                         <div className="space-y-2">
@@ -457,3 +552,5 @@ export default function DataViewPage() {
         </ScrollArea>
     );
 }
+
+    
