@@ -96,6 +96,7 @@ export default function DataViewPage() {
     const [translationFilter, setTranslationFilter] = useState<'all' | 'translated' | 'untranslated'>('all');
     const [selectedIds, setSelectedIds] = useState(new Set<string>());
     const [isBatchRegenerating, setIsBatchRegenerating] = useState(false);
+    const [isBatchTranslating, setIsBatchTranslating] = useState(false);
 
 
     const filteredCreations = useMemo(() => {
@@ -331,6 +332,50 @@ export default function DataViewPage() {
         setIsBatchRegenerating(false);
     };
 
+    const handleBatchTranslate = async () => {
+        if (selectedIds.size === 0) return;
+
+        setIsBatchTranslating(true);
+        toast({ title: `Iniciando traducción para ${selectedIds.size} elementos.`, description: "Esto puede tardar un poco." });
+        
+        const creationsToUpdate = Array.from(selectedIds)
+            .map(id => creations.find(c => c.id === id))
+            .filter((c): c is Creation => !!c);
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const creation of creationsToUpdate) {
+            try {
+                const details = getInputDetails(creation);
+                const result = await translateCreationDetailsAction({
+                    name: creation.name,
+                    details: details,
+                });
+
+                const newParams = { ...creation.params };
+                if (creation.type === 'generated') (newParams as GeneratedParams).details = result.translatedDetails;
+                if (creation.type === 'reimagined') (newParams as ReimaginedParams).contextDetails = result.translatedDetails;
+                if (creation.type === 'analyzed') (newParams as AnalyzedParams).additionalDetails = result.translatedDetails;
+                
+                await updateCreationNameAndParams(creation.id, result.translatedName, newParams);
+                await updateCreationTranslatedStatus(creation.id, true);
+                successCount++;
+            } catch (e) {
+                console.error(`Error translating details for ${creation.name} (ID: ${creation.id}):`, e);
+                failCount++;
+            }
+        }
+        
+        toast({
+            title: "Traducción en Lote Completa",
+            description: `Exitosos: ${successCount}, Fallidos: ${failCount}.`
+        });
+
+        setSelectedIds(new Set());
+        setIsBatchTranslating(false);
+    };
+
 
     if (historyLoading && creations.length === 0) {
         return (
@@ -392,9 +437,13 @@ export default function DataViewPage() {
                                     </div>
                                 </div>
                                 <div className="flex w-full sm:w-auto gap-2 flex-wrap">
-                                <Button onClick={handleBatchRegenerateNames} disabled={selectedIds.size === 0 || isBatchRegenerating} className="w-full sm:w-auto">
+                                <Button onClick={handleBatchRegenerateNames} disabled={selectedIds.size === 0 || isBatchRegenerating || isBatchTranslating} className="w-full sm:w-auto">
                                     {isBatchRegenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                                     Regenerar Nombres ({selectedIds.size})
+                                </Button>
+                                <Button onClick={handleBatchTranslate} disabled={selectedIds.size === 0 || isBatchRegenerating || isBatchTranslating} className="w-full sm:w-auto">
+                                    {isBatchTranslating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Languages className="mr-2 h-4 w-4" />}
+                                    Traducir Selección ({selectedIds.size})
                                 </Button>
                                 <Select value={translationFilter} onValueChange={(value: 'all' | 'translated' | 'untranslated') => setTranslationFilter(value)}>
                                     <SelectTrigger className="w-full sm:w-[200px]">
