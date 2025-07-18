@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useHistory } from '@/contexts/HistoryContext';
-import { List, Search, Download, Loader2, Info, Edit3, Save, X, Languages, Sparkles, Bot } from 'lucide-react';
+import { List, Search, Download, Loader2, Info, Edit3, Save, X, Languages, Sparkles, Bot, PauseCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -95,8 +95,9 @@ export default function DataViewPage() {
     const [translatingId, setTranslatingId] = useState<string | null>(null);
     const [translationFilter, setTranslationFilter] = useState<'all' | 'translated' | 'untranslated'>('all');
     const [selectedIds, setSelectedIds] = useState(new Set<string>());
-    const [isBatchRegenerating, setIsBatchRegenerating] = useState(false);
-    const [isBatchTranslating, setIsBatchTranslating] = useState(false);
+    const [isProcessingBatch, setIsProcessingBatch] = useState(false);
+    
+    const abortControllerRef = useRef<AbortController | null>(null);
 
 
     const filteredCreations = useMemo(() => {
@@ -301,7 +302,10 @@ export default function DataViewPage() {
     const handleBatchRegenerateNames = async () => {
         if (selectedIds.size === 0) return;
         
-        setIsBatchRegenerating(true);
+        setIsProcessingBatch(true);
+        abortControllerRef.current = new AbortController();
+        const signal = abortControllerRef.current.signal;
+
         toast({ title: `Iniciando regeneración para ${selectedIds.size} elementos.`, description: "Esto puede tardar un poco." });
         
         const creationsToUpdate = Array.from(selectedIds)
@@ -313,6 +317,10 @@ export default function DataViewPage() {
         let lastError = '';
 
         for (const creation of creationsToUpdate) {
+            if (signal.aborted) {
+                toast({ title: "Proceso Detenido", description: "La regeneración en lote fue detenida por el usuario." });
+                break;
+            }
             try {
                 const promptText = getInputDetails(creation);
                 const result = await regenerateCreationNameAction({ promptText });
@@ -339,13 +347,17 @@ export default function DataViewPage() {
         }
         
         setSelectedIds(new Set()); // Clear selection after processing
-        setIsBatchRegenerating(false);
+        setIsProcessingBatch(false);
+        abortControllerRef.current = null;
     };
 
     const handleBatchTranslate = async () => {
         if (selectedIds.size === 0) return;
 
-        setIsBatchTranslating(true);
+        setIsProcessingBatch(true);
+        abortControllerRef.current = new AbortController();
+        const signal = abortControllerRef.current.signal;
+
         toast({ title: `Iniciando traducción para ${selectedIds.size} elementos.`, description: "Esto puede tardar un poco." });
         
         const creationsToUpdate = Array.from(selectedIds)
@@ -357,6 +369,10 @@ export default function DataViewPage() {
         let lastError = '';
 
         for (const creation of creationsToUpdate) {
+             if (signal.aborted) {
+                toast({ title: "Proceso Detenido", description: "La traducción en lote fue detenida por el usuario." });
+                break;
+            }
             try {
                 const details = getInputDetails(creation);
                 const result = await translateCreationDetailsAction({
@@ -393,7 +409,14 @@ export default function DataViewPage() {
         }
 
         setSelectedIds(new Set());
-        setIsBatchTranslating(false);
+        setIsProcessingBatch(false);
+        abortControllerRef.current = null;
+    };
+
+    const handleStopProcessing = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
     };
 
 
@@ -457,14 +480,23 @@ export default function DataViewPage() {
                                     </div>
                                 </div>
                                 <div className="flex w-full sm:w-auto gap-2 flex-wrap">
-                                <Button onClick={handleBatchRegenerateNames} disabled={selectedIds.size === 0 || isBatchRegenerating || isBatchTranslating} className="w-full sm:w-auto">
-                                    {isBatchRegenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
-                                    Regenerar Nombres ({selectedIds.size})
-                                </Button>
-                                <Button onClick={handleBatchTranslate} disabled={selectedIds.size === 0 || isBatchRegenerating || isBatchTranslating} className="w-full sm:w-auto">
-                                    {isBatchTranslating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Languages className="mr-2 h-4 w-4" />}
-                                    Traducir Selección ({selectedIds.size})
-                                </Button>
+                                {isProcessingBatch ? (
+                                    <Button variant="destructive" onClick={handleStopProcessing} className="w-full sm:w-auto">
+                                        <PauseCircle className="mr-2 h-4 w-4" />
+                                        Detener
+                                    </Button>
+                                ) : (
+                                    <>
+                                        <Button onClick={handleBatchRegenerateNames} disabled={selectedIds.size === 0} className="w-full sm:w-auto">
+                                            <Bot className="mr-2 h-4 w-4" />
+                                            Regenerar Nombres ({selectedIds.size})
+                                        </Button>
+                                        <Button onClick={handleBatchTranslate} disabled={selectedIds.size === 0} className="w-full sm:w-auto">
+                                            <Languages className="mr-2 h-4 w-4" />
+                                            Traducir Selección ({selectedIds.size})
+                                        </Button>
+                                    </>
+                                )}
                                 <Select value={translationFilter} onValueChange={(value: 'all' | 'translated' | 'untranslated') => setTranslationFilter(value)}>
                                     <SelectTrigger className="w-full sm:w-[200px]">
                                         <SelectValue placeholder="Filtrar por traducción" />
@@ -492,6 +524,7 @@ export default function DataViewPage() {
                                                     checked={selectedIds.size > 0 && selectedIds.size === filteredCreations.length}
                                                     onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
                                                     aria-label="Seleccionar todo"
+                                                    disabled={isProcessingBatch}
                                                 />
                                             </TableHead>
                                             <TableHead className="w-[15%]">Nombre</TableHead>
@@ -507,13 +540,17 @@ export default function DataViewPage() {
                                             <TableRow 
                                                 key={creation.id} 
                                                 data-state={selectedIds.has(creation.id) ? "selected" : ""}
-                                                className={cn(translatingId === creation.id && "opacity-50 pointer-events-none")}
+                                                className={cn(
+                                                    translatingId === creation.id && "opacity-50 pointer-events-none",
+                                                    isProcessingBatch && !selectedIds.has(creation.id) && "opacity-50"
+                                                )}
                                             >
                                                 <TableCell>
                                                     <Checkbox
                                                         checked={selectedIds.has(creation.id)}
                                                         onCheckedChange={(checked) => handleSelectRow(creation.id, checked as boolean)}
                                                         aria-label={`Seleccionar ${creation.name}`}
+                                                        disabled={isProcessingBatch}
                                                     />
                                                 </TableCell>
                                                 <TableCell className="font-medium align-top group relative">
